@@ -370,70 +370,74 @@ function displayPreferences() {
 	// Группа выбора области деятельности
 	var myScopeGroup = myParametersGroup.add("panel", undefined, "Область действия");
 	with (myScopeGroup) {
-		orientation = "column";
+		orientation = "row";
 		minimumSize.width = myPanelWidth;
-		alignChildren = ["fill", "top"];
+		alignChildren = ["fill", "fill"];
 		margins = mySubPanelMargins;
-		
-		var myAllDocsCode = 0;
-		var myActiveDocCode = 1;
-		var mySelectedPagesCode = 2;
-		var mySelectedImagesCode = 3;
-		var myScopeOptions = [
-			[myAllDocsCode, "Все открытые документы"], // Code, UI text
-			[myActiveDocCode, "Активный документ"],
-			[mySelectedPagesCode, "Выбранные страницы"],
-			[mySelectedImagesCode, "Выбранные изображения"]];
-		
-		function myButtonClicked() {
-			for (var i = 0; i < myScopeGroup.children.length; i++)
-				if (myScopeGroup.children[i].value == true) {
-					myPreferences["scope"] = i;
-					if (i == myAllDocsCode) {
-						myDocuments = app.documents;
-						myScopeStatus.text = "";
-						for (n = 0; n < myDocuments.length; n++) {
-							myScopeStatus.text += myDocuments[n].name;
-							if (n + 1 < myDocuments.length) {
-								myScopeStatus.text += ", ";
-							}
-						}
-					} else if (i == myActiveDocCode) {
-						myDocument = app.activeDocument;
-						myScopeStatus.text = myDocument.name;
-					} else if (i == mySelectedPagesCode) {
-						var pagesPanel = app.panels.itemByName("Pages");
-						debugPrintObject(pagesPanel);
-					} else if (i == mySelectedImagesCode) {
-						
-					}
-				}
-		}
-		
-		for (var i = 0; i < myScopeOptions.length; i++) {
-			var myButton = myScopeGroup.add("radiobutton", undefined, myScopeOptions[i][1]);
-			myButton.value = (i == myPreferences["scope"]);
-			myButton.onClick = myButtonClicked;
-		}
-
-		with (myScopeGroup.add("panel")) {
-			orientation = "row";
-			minimumSize.width = myPanelWidth;
-			alignChildren = ["left", "top"];
-			margins = myStatusPanelMargins;
-			
-			var myScopeStatus = add("statictext", undefined, "");
-			with (myScopeStatus) {
-				align = "left";
-				graphics.font = mySmallFont;
-				minimumSize.width = myPanelWidth;
-				//minimumSize.height = myPanelWidth;
-			}
-		}
-
 	}
 	
+	var myScopeRadioGroup = myScopeGroup.add("group");
+	with (myScopeRadioGroup) {
+		orientation = "column";
+		//minimumSize.width = myPanelWidth;
+		alignChildren = ["fill", "top"];
+	}
 	
+	var myAllDocsCode = 0;
+	var myActiveDocCode = 1;
+	var mySelectedPagesCode = 2;
+	var mySelectedImagesCode = 3;
+	var myScopeOptions = [
+		[myAllDocsCode, "Все открытые документы"], // Code, UI text
+		[myActiveDocCode, "Активный документ"],
+		[mySelectedPagesCode, "Выбранные страницы"],
+		[mySelectedImagesCode, "Выбранные изображения"]];
+	
+	function myButtonClicked() {
+		for (var i = 0; i < myScopeRadioGroup.children.length; i++)
+			if (myScopeRadioGroup.children[i].value == true) {
+				myPreferences["scope"] = i;
+				while (myItemsList.items.length > 0) {
+					myItemsList.remove(myItemsList.items[0]);
+				}
+				if (i == myAllDocsCode) {
+					myScopeItemsGroup.enabled = true;
+					myDocuments = app.documents;
+					for (n = 0; n < myDocuments.length; n++) {
+						myItemsList.add("item", myDocuments[n].name, n);
+						myItemsList.selection = n;
+					}
+				} else if (i == myActiveDocCode) {
+					myDocument = app.activeDocument;
+					myScopeItemsGroup.enabled = false;
+				} else if (i == mySelectedPagesCode) {
+					myDocument = app.activeDocument;
+					myScopeItemsGroup.enabled = true;
+					for (n = 0; n < myDocument.pages.length; n++) {
+						myItemsList.add("item", myDocument.pages[n].name, n);
+						myItemsList.selection = n;
+					}
+				} else if (i == mySelectedImagesCode) {
+					myScopeItemsGroup.enabled = true;
+					
+				}
+			}
+	}
+	
+	for (var i = 0; i < myScopeOptions.length; i++) {
+		var myButton = myScopeRadioGroup.add("radiobutton", undefined, myScopeOptions[i][1]);
+		myButton.value = (i == myPreferences["scope"]);
+		myButton.onClick = myButtonClicked;
+	}
+	
+	var myScopeItemsGroup = myScopeGroup.add("group");
+	with (myScopeItemsGroup) {
+		orientation = "column";
+		minimumSize.width = 180;
+		alignChildren = ["fill", "fill"];
+	}
+	
+	var myItemsList = myScopeItemsGroup.add("listbox", undefined, undefined, {multiselect: true});
 	
 	
 	
@@ -494,7 +498,7 @@ function displayPreferences() {
 	myDoBackup.onClick();
 	myDownsample.onClick();
 	myUpsample.onClick();
-	myScopeGroup.children[0].onClick();
+	myScopeRadioGroup.children[0].onClick();
 	
 	// Показать диалог и, если всё хорошо, сохранить настройки
 	if (myDialog.show() == 1) {
