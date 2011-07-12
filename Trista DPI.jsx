@@ -13,17 +13,18 @@
 
 var myStatusWindow;
 var myStatusWindowPhase;
-var myStatusObject;
-var myStatusWindowOperation;
+var myStatusWindowObject;
+var myStatusWindowSubObject;
 var myStatusWindowGauge;
+var myStatusWindowSubGauge;
 
 var myPreferences = new Array();
 var myPreferencesFileName;
 
+var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
 
 var myDocuments;
-var myDocument;
 var myPages;
 var myGraphicsList = [];
 
@@ -104,6 +105,101 @@ function initialSettings() {
 	}
 	
 	return true;
+}
+
+// Соберём окно с градусником
+// ------------------------------------------------------
+function makeStatusWindow() {
+	var myPanelWidth = 300;
+	
+	// Собираем палитру
+	myStatusWindow = new Window("palette", "Выполнение");
+	myStatusWindow.orientation = "row";
+	myStatusWindow.alignChildren = ["fill", "top"];
+	
+	// Константы
+	mySmallFont = myStatusWindow.graphics.font = ScriptUI.newFont("dialog", "Regular", 10);
+	
+	// Область отображения статусных данных
+	var myDisplayZone = myStatusWindow.add("group");
+	myDisplayZone.orientation = "column";
+	myDisplayZone.minimumSize.width = myPanelWidth;
+	myDisplayZone.maximumSize.width = myPanelWidth;
+	myDisplayZone.alignChildren = ["fill", "top"];
+	
+	// Элементы статусных данных
+	
+	// Фаза
+	myStatusWindowPhase = myDisplayZone.add("statictext", undefined, "");
+	myStatusWindowPhase.minimumSize.height = 30;
+	myStatusWindowPhase.alignment = ["fill", "top"];
+	myStatusWindowPhase.justify = "left";
+	myStatusWindowPhase.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
+	myStatusWindowPhase.graphics.foregroundColor = myStatusWindowPhase.graphics.newPen(myStatusWindowPhase.graphics.PenType.SOLID_COLOR, myHeaderColor, 1);
+	
+	// Основной объект и градусник
+	myStatusWindowObject = myDisplayZone.add("statictext", undefined, "");
+	myStatusWindowObject.alignment = ["fill", "top"];
+	myStatusWindowObject.justify = "left";
+	myStatusWindowObject.graphics.font = mySmallFont;
+	
+	myStatusWindowGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
+	
+	// Вспомогательный объект и градусник
+	myStatusWindowSubObject = myDisplayZone.add("statictext", undefined, "");
+	myStatusWindowSubObject.alignment = ["fill", "top"];
+	myStatusWindowSubObject.justify = "left";
+	myStatusWindowSubObject.graphics.font = mySmallFont;
+	
+	myStatusWindowSubGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
+	
+	// Область отображения кнопок
+	var myButtonsGroup = myStatusWindow.add("group");
+	myButtonsGroup.orientation = "column";
+	myButtonsGroup.alignment = ["right", "bottom"];
+	
+	// Кнопки окошка
+	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "cancel"});
+	myCancelButton.onClick = function() {
+		myFlagStopExecution = true;
+	}
+	
+	return true;
+}
+
+// Покажем статус в окне с градусником
+// ------------------------------------------------------
+function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax, mySubObject, mySubGaugeCurrent, mySubGaugeMax) {
+	if (!myStatusWindow.visible) myStatusWindow.show();
+	
+	// Обновим что нужно
+	if (myPhase != undefined) myStatusWindowPhase.text = myPhase;
+	if (myObject != undefined) myStatusWindowObject.text = myObject;
+	if (myGaugeCurrent != undefined) myStatusWindowGauge.value = myGaugeCurrent;
+	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
+	if (mySubObject != undefined) myStatusWindowSubObject.text = mySubObject;
+	if (mySubGaugeCurrent != undefined) myStatusWindowSubGauge.value = mySubGaugeCurrent;
+	if (mySubGaugeMax != undefined) myStatusWindowSubGauge.maxvalue = mySubGaugeMax;
+	
+	// Проверим очередь событий и отрисуем окошко
+	myStatusWindow.update();
+}
+
+// Спрячем окно с градусником
+// ------------------------------------------------------
+function hideStatus() {
+	// Очистим окошко
+	myStatusWindowPhase.text = "";
+	myStatusWindowObject.text = "";
+	myStatusWindowOperation.text = "";
+	myStatusWindowGauge.value = 0;
+	myStatusWindowGauge.maxvalue = 1;
+	myStatusWindowSubObject.text = "";
+	myStatusWindowSubGauge.value = 0;
+	myStatusWindowSubGauge.maxvalue = 1;
+	
+	myStatusWindow.update();
+	myStatusWindow.hide();
 }
 
 // Проверим документ и линки
@@ -193,8 +289,6 @@ function displayPreferences() {
 	var mySubControlMargins = [18, 0, 0, 0];
 	var myStatusPanelMargins = [10, 10, 10, 10];
 	var mySubControlWidth = 300;
-	
-	var mySmallFont = myStatusWindow.graphics.font = ScriptUI.newFont("dialog", "Regular", 10);
 	
 	// Поехали
 	var myCommonGroup = myDialog.add("group");
@@ -426,7 +520,7 @@ function displayPreferences() {
 	
 	for (var i = 0; i < myScopeOptions.length; i++) {
 		var myButton = myScopeRadioGroup.add("radiobutton", undefined, myScopeOptions[i][1]);
-		myButton.value = (i == myPreferences["scope"]);
+		myButton.value = (i == myActiveDocCode);
 		myButton.onClick = myButtonClicked;
 	}
 	
@@ -544,97 +638,6 @@ function selectImages() {
 	
 	//alert(myGraphicsList);
 	return true;
-}
-
-// Соберём окно с градусником
-// ------------------------------------------------------
-function makeStatusWindow() {
-	var myPanelWidth = 300;
-	
-	// Собираем палитру
-	myStatusWindow = new Window("palette", "Выполнение");
-	myStatusWindow.orientation = "row";
-	//myStatusWindow.alignment = ["left", "top"];
-	myStatusWindow.alignChildren = ["fill", "top"];
-	
-	// Константы
-	var mySmallFont = myStatusWindow.graphics.font = ScriptUI.newFont("dialog", "Regular", 10);
-	
-	// Область отображения статусных данных
-	var myDisplayZone = myStatusWindow.add("group");
-	myDisplayZone.orientation = "column";
-	myDisplayZone.minimumSize.width = myPanelWidth;
-	myDisplayZone.maximumSize.width = myPanelWidth;
-	myDisplayZone.alignChildren = ["fill", "top"];
-	
-	// Элементы статусных данных
-	myStatusWindowPhase = myDisplayZone.add("statictext", undefined, "");
-	myStatusWindowPhase.minimumSize.height = 30;
-	myStatusWindowPhase.alignment = ["fill", "top"];
-	myStatusWindowPhase.justify = "left";
-	myStatusWindowPhase.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
-	myStatusWindowPhase.graphics.foregroundColor = myStatusWindowPhase.graphics.newPen(myStatusWindowPhase.graphics.PenType.SOLID_COLOR, myHeaderColor, 1);
-	
-	var myStatusObjectAndOperation = myDisplayZone.add("group");
-	myStatusObjectAndOperation.minimumSize.width = myPanelWidth;
-	myStatusObjectAndOperation.orientation = "row";
-	myStatusObjectAndOperation.alignChildren = ["fill", "top"];
-	
-	myStatusObject = myStatusObjectAndOperation.add("statictext", undefined, "");
-	myStatusObject.alignment = ["fill", "top"];
-	myStatusObject.justify = "left";
-	myStatusObject.graphics.font = mySmallFont;
-	
-	myStatusWindowOperation = myStatusObjectAndOperation.add("statictext", undefined, "");
-	myStatusWindowOperation.alignment = ["fill", "top"];
-	myStatusWindowOperation.justify = "right";
-	myStatusWindowOperation.graphics.font = mySmallFont;
-	
-	myStatusWindowGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
-	
-	// Область отображения кнопок
-	var myButtonsGroup = myStatusWindow.add("group");
-	myButtonsGroup.orientation = "column";
-	//myButtonsGroup.alignment = ["right", "top"];
-	myButtonsGroup.alignment = ["right", "bottom"];
-	
-	// Кнопки окошка
-	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "cancel"});
-	myCancelButton.onClick = function() {
-		myFlagStopExecution = true;
-	}
-	
-	return true;
-}
-
-// Покажем статус в окне с градусником
-// ------------------------------------------------------
-function showStatus(myPhase, myObject, myOperation, myGaugeCurrent, myGaugeMax) {
-	if (!myStatusWindow.visible) myStatusWindow.show();
-	
-	// Обновим что нужно
-	if (myPhase != undefined) myStatusWindowPhase.text = myPhase;
-	if (myObject != undefined) myStatusObject.text = myObject;
-	if (myOperation != undefined) myStatusWindowOperation.text = myOperation;
-	if (myGaugeCurrent != undefined) myStatusWindowGauge.value = myGaugeCurrent;
-	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
-	
-	// Проверим очередь событий и отрисуем окошко
-	myStatusWindow.update();
-}
-
-// Спрячем окно с градусником
-// ------------------------------------------------------
-function hideStatus() {
-	// Очистим окошко
-	myStatusWindowPhase.text = "";
-	myStatusObject.text = "";
-	myStatusWindowOperation.text = "";
-	myStatusWindowGauge.value = 0;
-	myStatusWindowGauge.maxvalue = 1;
-	
-	myStatusWindow.update();
-	myStatusWindow.hide();
 }
 
 // Сохраним оригиналы картинок
