@@ -169,17 +169,21 @@ function makeStatusWindow() {
 
 // Покажем статус в окне с градусником
 // ------------------------------------------------------
-function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax, mySubObject, mySubGaugeCurrent, mySubGaugeMax) {
+function showStatus(myPhase, myObjectData, mySubObjectData) {
 	if (!myStatusWindow.visible) myStatusWindow.show();
 	
 	// Обновим что нужно
 	if (myPhase != undefined) myStatusWindowPhase.text = myPhase;
-	if (myObject != undefined) myStatusWindowObject.text = myObject;
-	if (myGaugeCurrent != undefined) myStatusWindowGauge.value = myGaugeCurrent;
-	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
-	if (mySubObject != undefined) myStatusWindowSubObject.text = mySubObject;
-	if (mySubGaugeCurrent != undefined) myStatusWindowSubGauge.value = mySubGaugeCurrent;
-	if (mySubGaugeMax != undefined) myStatusWindowSubGauge.maxvalue = mySubGaugeMax;
+	if ((myObjectData != undefined) && (myObjectData.length > 0)) {
+		if (myObjectData[0] != undefined) myStatusWindowObject.text = myObjectData[0];
+		if (myObjectData[1] != undefined) myStatusWindowGauge.value = myObjectData[1];
+		if (myObjectData[2] != undefined) myStatusWindowGauge.maxvalue = myObjectData[2];
+	}
+	if ((mySubObjectData != undefined) && (mySubObjectData.length > 0)) {
+		if (mySubObjectData[0] != undefined) myStatusWindowSubObject.text = mySubObjectData[0];
+		if (mySubObjectData[1] != undefined) myStatusWindowSubGauge.value = mySubObjectData[1];
+		if (mySubObjectData[2] != undefined) myStatusWindowSubGauge.maxvalue = mySubObjectData[2];
+	}
 	
 	// Проверим очередь событий и отрисуем окошко
 	myStatusWindow.update();
@@ -191,7 +195,6 @@ function hideStatus() {
 	// Очистим окошко
 	myStatusWindowPhase.text = "";
 	myStatusWindowObject.text = "";
-	myStatusWindowOperation.text = "";
 	myStatusWindowGauge.value = 0;
 	myStatusWindowGauge.maxvalue = 1;
 	myStatusWindowSubObject.text = "";
@@ -202,77 +205,68 @@ function hideStatus() {
 	myStatusWindow.hide();
 }
 
-// Проверим документ и линки
+// Проверим открытые документы
 // ------------------------------------------------------
 function checkDocumentStatus() {
 	if (app.documents.length == 0) {
-		alert("Невозможно работать в таких условиях.\nДля начала откройте хотя бы документ, что-ли.");
+		alert("Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.");
 		return false;
 	}
 	
-	myDocument = app.activeDocument;
+	showStatus("ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ", ["", 0, app.documents.length], []);
 	
-	// Проверим статус линков
-	var myLinksNormal = 0;
-	var myLinksOutOfDate = 0;
-	var myLinksMissing = 0;
-	var myLinksEmbedded = 0;
+	myDocuments = [];
 	
-	for (i = 0; i < myDocument.links.length; i++) {
-		switch (myDocument.links[i].status) {
-			case LinkStatus.NORMAL:
-				myLinksNormal++;
-				break;
-			case LinkStatus.LINK_OUT_OF_DATE:
-				myLinksOutOfDate++;
-				break;
-			case LinkStatus.LINK_MISSING:
-				myLinksMissing++;
-				break;
-			case LinkStatus.LINK_EMBEDDED:
-				myLinksEmbedded++;
-				break;
-			default:
-				break;
+	for (var i = 0; i < app.documents.length; i++) {
+		var myDocument = app.documents[i];
+		
+		showStatus(undefined, [myDocument.name, i, undefined], []);
+		
+		// Проверим статус линков
+		var myLinksNormal = 0;
+		var myLinksOutOfDate = 0;
+		var myLinksMissing = 0;
+		var myLinksEmbedded = 0;
+		
+		for (var n = 0; n < myDocument.links.length; n++) {
+			
+			showStatus(undefined, [], [myDocument.links[n].name, n, myDocument.links.length]);
+			
+			switch (myDocument.links[n].status) {
+				case LinkStatus.NORMAL:
+					myLinksNormal++;
+					break;
+				case LinkStatus.LINK_OUT_OF_DATE:
+					myLinksOutOfDate++;
+					break;
+				case LinkStatus.LINK_MISSING:
+					myLinksMissing++;
+					break;
+				case LinkStatus.LINK_EMBEDDED:
+					myLinksEmbedded++;
+					break;
+				default:
+					break;
+			}
 		}
-	}
-	
-	if (myLinksMissing > 0) {
-		alert("В документе есть отсутствующие картинки.\nПоковыряйтесь с палитрой Links, или поудаляйте эти картинки, чтоб не мешались, а потом можно будет продолжить.");
-		return false;
-	}
-	
-	if (myLinksOutOfDate > 0) {
-		if (!confirm("В документе есть необновлённые картинки.\nОбновить их и продолжить?"))
-			return false;
 		
-		showStatus("ОБНОВЛЕНИЕ КАРТИНОК", " ", " ", 0, myLinksOutOfDate);
+		showStatus(undefined, [], [undefined, myDocument.links.length, myDocument.links.length]);
 		
-		for (i = 0; i < myDocument.links.length; i++) {
-			if (myDocument.links[i].status == LinkStatus.LINK_OUT_OF_DATE) {
-				showStatus(undefined, myDocument.links[i].name, undefined, myStatusWindowGauge.maxvalue - myLinksOutOfDate, undefined);
-				if (myFlagStopExecution) return false;
-				myDocument.links[i].update();
-				myLinksOutOfDate--;
-				myLinksNormal++;
-			};
-		};
+		// Проверим, сохранён ли документ
+		if (myDocument.modified) {
+			if (!confirm("Документ " + myDocument.name + " изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?"))
+				return false;
+			myDocument.save();
+		}
 		
-		showStatus(undefined, undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
-		hideStatus();
+		// Добавим документ в список
+		myDocuments.push([myDocument, myDocument == app.activeDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing]); 
 	}
 	
-	if (myLinksNormal == 0) {
-		alert("В документе нет подцепленных картинок.\nПопробуйте смеха ради добавить в документ каких-нибудь там джепегов на 900 точек, и тогда можно будет продолжить.");
-		return false;
-	}
+	debugPrintObject(myDocuments);
 	
-	// Проверим, сохранён ли документ
-	if (myDocument.modified) {
-		if (!confirm("Документ изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?"))
-			return false;
-		myDocument.save();
-	}
+	showStatus(undefined, undefined, app.documents.length);
+	hideStatus();
 	
 	return true;
 }
@@ -456,9 +450,6 @@ function displayPreferences() {
 				myPreferences["downsampleThreshold"] = parseInt(myDownsampleThreshold.text);
 			}
 		}
-		
-		
-		
 	}
 	
 	// Группа выбора области деятельности
@@ -495,23 +486,29 @@ function displayPreferences() {
 					myItemsList.remove(myItemsList.items[0]);
 				}
 				if (i == myAllDocsCode) {
+					// Все открытые документы
 					myScopeItemsGroup.enabled = true;
-					myDocuments = app.documents;
-					for (n = 0; n < myDocuments.length; n++) {
-						myItemsList.add("item", myDocuments[n].name, n);
-						myItemsList.selection = n;
+					for (var n = 0; n < myDocuments.length; n++) {
+						var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
+						if (myDocuments[n][3] == 0) {
+							newListItem.checked = true;
+							myItemsList.selection = n;
+						}
 					}
 				} else if (i == myActiveDocCode) {
-					myDocument = app.activeDocument;
+					// Активный документ
 					myScopeItemsGroup.enabled = false;
+					myItemsList.add("item", app.activeDocument.name, n);
 				} else if (i == mySelectedPagesCode) {
+					// Выбранные страницы
 					myDocument = app.activeDocument;
 					myScopeItemsGroup.enabled = true;
-					for (n = 0; n < myDocument.pages.length; n++) {
+					for (var n = 0; n < myDocument.pages.length; n++) {
 						myItemsList.add("item", myDocument.pages[n].name, n);
 						myItemsList.selection = n;
 					}
 				} else if (i == mySelectedImagesCode) {
+					// Выбранные изображения
 					myScopeItemsGroup.enabled = true;
 					
 				}
@@ -522,12 +519,19 @@ function displayPreferences() {
 		var myButton = myScopeRadioGroup.add("radiobutton", undefined, myScopeOptions[i][1]);
 		myButton.value = (i == myActiveDocCode);
 		myButton.onClick = myButtonClicked;
+		
+		if (i == myAllDocsCode) {
+			myButton.enabled = (myDocuments.length > 1);
+		}
+		if (i == mySelectedImagesCode) {
+			
+		}
 	}
 	
 	var myScopeItemsGroup = myScopeGroup.add("group");
 	with (myScopeItemsGroup) {
 		orientation = "column";
-		minimumSize.width = 180;
+		minimumSize = [180, 200];
 		alignChildren = ["fill", "fill"];
 	}
 	
@@ -734,10 +738,24 @@ function processImages() {
 		var myReturnMessage = "";
 		
 		try {
-			if (!BridgeTalk.isRunning("photoshop")) {
-				BridgeTalk.launch("photoshop");
+			// Найти фотошоп
+			var myPhotoshop = "photoshop";
+			for (var i = 0; i < apps.length; i++){
+				if (apps[i].indexOf("photoshop") != -1) {
+					if (BridgeTalk.isRunning(apps[i])) {
+						if (apps[i] > myPhotoshop) {
+							myPhotoshop = apps[i];
+						}
+					}
+				}
 			}
-			//BridgeTalk.bringToFront("photoshop");
+			
+			// Запустить, ежели чего
+			if (!BridgeTalk.isRunning(myPhotoshop)) {
+				BridgeTalk.launch(myPhotoshop);
+			}
+			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") {}
+			BridgeTalk.bringToFront("indesign");
 			
 			// Функция приёма сообщений фотошоповского скрипта
 			BridgeTalk.onReceive = function(myMessage) {
@@ -752,7 +770,7 @@ function processImages() {
 			}
 			
 			var myBT = new BridgeTalk;
-			myBT.target = "photoshop";
+			myBT.target = myPhotoshop;
 			myBT.body = bridgeFunction.toString() + "\r\rbridgeFunction(\"";
 			myBT.body += myGraphic.itemLink.filePath + "\", ";
 			myBT.body += myDoUpsample + ", ";
