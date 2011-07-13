@@ -11,8 +11,6 @@
 
 #target indesign
 
-var myAppVersion;
-
 var myStatusWindow;
 var myStatusWindowPhase;
 var myStatusWindowObject;
@@ -22,7 +20,6 @@ var myStatusWindowSubGauge;
 
 var myPreferences = new Array();
 var myPreferencesFileName;
-var myCachesFolder;
 
 var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
@@ -38,7 +35,7 @@ main();
 
 // "Стартую!" (эпитафия на могиле Неизвестной Секретарши)
 // ------------------------------------------------------
-function main() {
+function main(){
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
 	if (!checkDocumentStatus()) return;
@@ -53,8 +50,6 @@ function main() {
 function initialSettings() {
 	app.scriptPreferences.userInteractionLevel = UserInteractionLevels.interactWithAll;
 	app.scriptPreferences.enableRedraw = true;
-	
-	myAppVersion = Number(app.version.match(/^\d+/));
 	
 	// Настройки по умолчанию
 	myPreferences["changeFormat"] = true;
@@ -75,17 +70,12 @@ function initialSettings() {
 	
 	myPreferences["backup"] = true;
 	
-	// Определение платформы
 	if ($.os.toLowerCase().indexOf("macintosh") != -1) {
-		// Маки
 		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.tristatnd.txt";
 		myPreferences["backupFolder"] = "~/Documents/300dpi backup/";
-		myCachesFolder = "~/Library/Caches/";
 	} else if ($.os.toLowerCase().indexOf("windows") != -1) {
-		// Виндовз
 		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.tristatnd.txt";
 		myPreferences["backupFolder"] = "~/Documents/300dpi backup/";
-		myCachesFolder = "~/Library/Caches/";
 	}
 
 	// Загрузить настройки
@@ -195,8 +185,8 @@ function showStatus(myPhase, myObjectData, mySubObjectData) {
 		if (mySubObjectData[2] != undefined) myStatusWindowSubGauge.maxvalue = mySubObjectData[2];
 	}
 	
-	// Отрисуем окошко
-	if (myAppVersion >= 6) { myStatusWindow.update(); }
+	// Проверим очередь событий и отрисуем окошко
+	myStatusWindow.update();
 }
 
 // Спрячем окно с градусником
@@ -211,7 +201,7 @@ function hideStatus() {
 	myStatusWindowSubGauge.value = 0;
 	myStatusWindowSubGauge.maxvalue = 1;
 	
-	if (myAppVersion >= 6) { myStatusWindow.update(); }
+	myStatusWindow.update();
 	myStatusWindow.hide();
 }
 
@@ -232,7 +222,7 @@ function checkDocumentStatus() {
 		
 		showStatus(undefined, [myDocument.name, i, undefined], []);
 		
-		// Посчитаем и разберём линки
+		// Проверим статус линков
 		var myLinksNormal = 0;
 		var myLinksOutOfDate = 0;
 		var myLinksMissing = 0;
@@ -273,6 +263,8 @@ function checkDocumentStatus() {
 		myDocuments.push([myDocument, myDocument == app.activeDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing]); 
 	}
 	
+	debugPrintObject(myDocuments);
+	
 	showStatus(undefined, undefined, app.documents.length);
 	hideStatus();
 	
@@ -291,59 +283,6 @@ function displayPreferences() {
 	var mySubControlMargins = [18, 0, 0, 0];
 	var myStatusPanelMargins = [10, 10, 10, 10];
 	var mySubControlWidth = 300;
-	
-	// Картинки интерфейса
-	var myCircleGreenData = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDoAABSCAABFVgAADqXAAAXb9daH5AAAACLSURBVHja1NK9CQJBEIbhZ8X8arAEc8HISLATwQ7kChAEO7n0UnNL2A6Eq2BNVjiOuw0WDPxggvl5YeZjQkpJjVYqVQ2ux0loA2xwxy6Xn7ggpmuaBzP0QjOqnbDHFnFp1dsE+qrBo3TjsXDW4Seu9oXZvgSeMcxAQ+4tgjG71+Gdo5s6CuF/Xu4zALGGGhU58X7YAAAAAElFTkSuQmCC";
-	var myCircleRedData = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDoAABSCAABFVgAADqXAAAXb9daH5AAAACNSURBVHja1NIxCgIxEIXhL7L9nmGPYC9YWQmW3kLwIoLgLSy33dbeI+wNhD1BbCKE4KZYsPDBFJnkH/IeE2KMlmhloRaDTX64hwAdrtik9gNnjMfMVlMM6vBEm/UO2GKNce6rlwL6qMWt5nFfsbX7SapD5e1QA0+YvkBTupsFx5Rej1eqvkwUwv+s3HsAtqYaFURyO9gAAAAASUVORK5CYII=";
-	
-	// Функция декодирования картинок
-	function decode64(input) {
-		var output = "";
-		var chr1, chr2, chr3 = "";
-		var enc1, enc2, enc3, enc4 = "";
-		var i = 0;
-		var keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-
-		do {
-			enc1 = keyStr.indexOf(input.charAt(i++));
-			enc2 = keyStr.indexOf(input.charAt(i++));
-			enc3 = keyStr.indexOf(input.charAt(i++));
-			enc4 = keyStr.indexOf(input.charAt(i++));
-
-			chr1 = (enc1 << 2) | (enc2 >> 4);
-			chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-			chr3 = ((enc3 & 3) << 6) | enc4;
-
-			output = output + String.fromCharCode(chr1);
-
-			if (enc3 != 64) {
-				output = output + String.fromCharCode(chr2);
-			}
-			if (enc4 != 64) {
-				output = output + String.fromCharCode(chr3);
-			}
-
-			chr1 = chr2 = chr3 = "";
-			enc1 = enc2 = enc3 = enc4 = "";
-		} while (i < input.length);
-
-		return unescape(output);
-	}
-	
-	// Функция записи картинок
-	function writePicture(myFileName, myData) {
-		var myFile = new File(myCachesFolder + myFileName);
-		if (myFile.open("w")) {
-			myFile.encoding = "BINARY";
-			myFile.write(decode64(myData));
-			myFile.close();
-			return myFile;
-		}
-	}
-	
-	// Делаем временные файлы с картинками
-	var myCircleGreenFile = writePicture("img_green.png", myCircleGreenData);
-	var myCircleRedFile = writePicture("img_red.png", myCircleRedData);
 	
 	// Поехали
 	var myCommonGroup = myDialog.add("group");
@@ -543,56 +482,35 @@ function displayPreferences() {
 		for (var i = 0; i < myScopeRadioGroup.children.length; i++)
 			if (myScopeRadioGroup.children[i].value == true) {
 				myPreferences["scope"] = i;
-				
-				// очистить список
-				myItemsList.removeAll();
-				
-				// прореагировать в зависимости от кнопки
-				switch (myPreferences["scope"]) {
-					case myAllDocsCode:
-						// Все открытые документы
-						myScopeItemsGroup.enabled = true;
-						for (var n = 0; n < myDocuments.length; n++) {
-							var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
-							if (myDocuments[n][3] == 0) {
-								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
-								myItemsList.selection = n;
-							} else {
-								newListItem.image = ScriptUI.newImage(myCircleRedFile);
-							}
-						}
-						break;
-					case myActiveDocCode:
-						// Активный документ
-						myScopeItemsGroup.enabled = false;
-						//myItemsList.add("item", app.activeDocument.name, n);
-						for (var n = 0; n < myDocuments.length; n++) {
-							if (myDocuments[n][1]) {
-								var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
-								if (myDocuments[n][3] == 0) {
-								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
-								myItemsList.selection = n;
-							} else {
-								newListItem.image = ScriptUI.newImage(myCircleRedFile);
-								}
-							}
-						}
-						break;
-					case mySelectedPagesCode:
-						// Выбранные страницы
-						myDocument = app.activeDocument;
-						myScopeItemsGroup.enabled = true;
-						for (var n = 0; n < myDocument.pages.length; n++) {
-							myItemsList.add("item", myDocument.pages[n].name, n);
+				while (myItemsList.items.length > 0) {
+					myItemsList.remove(myItemsList.items[0]);
+				}
+				if (i == myAllDocsCode) {
+					// Все открытые документы
+					myScopeItemsGroup.enabled = true;
+					for (var n = 0; n < myDocuments.length; n++) {
+						var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
+						if (myDocuments[n][3] == 0) {
+							newListItem.checked = true;
 							myItemsList.selection = n;
 						}
-						break;
-					case mySelectedImagesCode:
-						// Выбранные изображения
-						myScopeItemsGroup.enabled = true;
-						break;
-					default:
-						return false;
+					}
+				} else if (i == myActiveDocCode) {
+					// Активный документ
+					myScopeItemsGroup.enabled = false;
+					myItemsList.add("item", app.activeDocument.name, n);
+				} else if (i == mySelectedPagesCode) {
+					// Выбранные страницы
+					myDocument = app.activeDocument;
+					myScopeItemsGroup.enabled = true;
+					for (var n = 0; n < myDocument.pages.length; n++) {
+						myItemsList.add("item", myDocument.pages[n].name, n);
+						myItemsList.selection = n;
+					}
+				} else if (i == mySelectedImagesCode) {
+					// Выбранные изображения
+					myScopeItemsGroup.enabled = true;
+					
 				}
 			}
 	}
@@ -606,8 +524,7 @@ function displayPreferences() {
 			myButton.enabled = (myDocuments.length > 1);
 		}
 		if (i == mySelectedImagesCode) {
-			// заглушка
-			myButton.enabled = false;
+			
 		}
 	}
 	
@@ -681,46 +598,19 @@ function displayPreferences() {
 	myUpsample.onClick();
 	myScopeRadioGroup.children[0].onClick();
 	
-	// Показать диалог
+	// Показать диалог и, если всё хорошо, сохранить настройки
 	if (myDialog.show() == 1) {
-		// Сделать список обрабатываемого
-		switch (myPreferences["scope"]) {
-			case myAllDocsCode:
-				for (var i = myDocuments.length - 1; i >= 0; i--) {
-					if (!myItemsList.items[i].selected) {
-						myDocuments.splice(i, 1);
-						//myDocuments.remove(myDocuments[i]);
-					}
-				}
-				break;
-			case myActiveDocCode:
-				break;
-			case mySelectedPagesCode:
-				break;
-			case mySelectedImagesCode:
-				break;
-			default:
-				return false;
-		}
-		
-		// Сохранить настройки
 		var myPreferencesArray = [];
 		for (i in myPreferences)
 			myPreferencesArray.push(i + "\t" + typeof myPreferences[i] + "\t" + myPreferences[i]);
 		
 		var myPreferencesFile = new File(myPreferencesFileName);
-		if (myPreferencesFile.open("w")) {
-			myPreferencesFile.write(myPreferencesArray.join("\n"));
-			myPreferencesFile.close();
-		} else {
-			alert("Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.");
-		}
-		
-		// Удалить временные файлы
-		myCircleGreenFile.remove();
-		myCircleRedFile.remove();
-		
-		return true;
+		if (myPreferencesFile.open("w"))
+			if (myPreferencesFile.write(myPreferencesArray.join("\n")))
+				if (myPreferencesFile.close())
+					return true;
+		alert("Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.");
+		return false;
 	} else {
 		return false;
 	}
@@ -730,7 +620,6 @@ function displayPreferences() {
 // ------------------------------------------------------
 function selectImages() {
 	// Получим список картинок
-	return false;
 	var myGraphics = myDocument.allGraphics;
 	
 	// Функция проверки: надо ли вообще что либо делать с картинкой
@@ -783,14 +672,11 @@ function backupImages() {
 	var myFile;
 	for (var i = 0; i < myGraphicsList.length; i++) {
 		showStatus(undefined, myGraphicsList[i].itemLink.name, undefined, i, undefined);
-		
 		myFile = new File(myGraphicsList[i].itemLink.filePath);
 		if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myGraphicsList[i].itemLink.name))) {
 			alert("Ошибка при резервном копировании файла\n" + myGraphicsList[i].itemLink.filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
 			return false;
 		}
-		myFile.close();
-		
 		if (i+1 < myGraphicsList.length)
 			showStatus(undefined, myGraphicsList[i+1].itemLink.name, undefined, i+1, undefined);
 	}
