@@ -722,6 +722,10 @@ function displayPreferences() {
 		
 		return true;
 	} else {
+		// Удалить временные файлы
+		myCircleGreenFile.remove();
+		myCircleRedFile.remove();
+		
 		return false;
 	}
 }
