@@ -16,9 +16,7 @@ var myAppVersion;
 var myStatusWindow;
 var myStatusWindowPhase;
 var myStatusWindowObject;
-var myStatusWindowSubObject;
 var myStatusWindowGauge;
-var myStatusWindowSubGauge;
 
 var myPreferences = new Array();
 var myPreferencesFileName;
@@ -27,11 +25,23 @@ var myCachesFolder;
 var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
 
-var myDocuments;
-var myPages;
-var myGraphicsList = [];
+var myDocuments = [];
+var myPages = [];
+var myGraphics = [];
+var myActiveDocument;
 
 var myFlagStopExecution = false;
+
+var myAllDocsCode = 0;
+var myActiveDocCode = 1;
+var mySelectedPagesCode = 2;
+var mySelectedImagesCode = 3;
+var myScopeOptions = [
+	[myAllDocsCode, "Все открытые документы"], // Code, UI text
+	[myActiveDocCode, "Активный документ"],
+	[mySelectedPagesCode, "Выбранные страницы"],
+	[mySelectedImagesCode, "Выбранные изображения"]];
+
 
 
 main();
@@ -41,7 +51,7 @@ main();
 function main() {
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
-	if (!checkDocumentStatus()) return;
+	if (!checkDocuments()) return;
 	if (!displayPreferences()) return;
 	if (!selectImages()) return;
 	if (!backupImages()) return;
@@ -147,21 +157,13 @@ function makeStatusWindow() {
 	myStatusWindowPhase.graphics.font = ScriptUI.newFont("dialog", "Bold", 12);
 	myStatusWindowPhase.graphics.foregroundColor = myStatusWindowPhase.graphics.newPen(myStatusWindowPhase.graphics.PenType.SOLID_COLOR, myHeaderColor, 1);
 	
-	// Основной объект и градусник
+	// Объект и градусник
 	myStatusWindowObject = myDisplayZone.add("statictext", undefined, "");
 	myStatusWindowObject.alignment = ["fill", "top"];
 	myStatusWindowObject.justify = "left";
 	myStatusWindowObject.graphics.font = mySmallFont;
 	
 	myStatusWindowGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
-	
-	// Вспомогательный объект и градусник
-	myStatusWindowSubObject = myDisplayZone.add("statictext", undefined, "");
-	myStatusWindowSubObject.alignment = ["fill", "top"];
-	myStatusWindowSubObject.justify = "left";
-	myStatusWindowSubObject.graphics.font = mySmallFont;
-	
-	myStatusWindowSubGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
 	
 	// Область отображения кнопок
 	var myButtonsGroup = myStatusWindow.add("group");
@@ -179,21 +181,14 @@ function makeStatusWindow() {
 
 // Покажем статус в окне с градусником
 // ------------------------------------------------------
-function showStatus(myPhase, myObjectData, mySubObjectData) {
+function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	if (!myStatusWindow.visible) myStatusWindow.show();
 	
 	// Обновим что нужно
 	if (myPhase != undefined) myStatusWindowPhase.text = myPhase;
-	if ((myObjectData != undefined) && (myObjectData.length > 0)) {
-		if (myObjectData[0] != undefined) myStatusWindowObject.text = myObjectData[0];
-		if (myObjectData[1] != undefined) myStatusWindowGauge.value = myObjectData[1];
-		if (myObjectData[2] != undefined) myStatusWindowGauge.maxvalue = myObjectData[2];
-	}
-	if ((mySubObjectData != undefined) && (mySubObjectData.length > 0)) {
-		if (mySubObjectData[0] != undefined) myStatusWindowSubObject.text = mySubObjectData[0];
-		if (mySubObjectData[1] != undefined) myStatusWindowSubGauge.value = mySubObjectData[1];
-		if (mySubObjectData[2] != undefined) myStatusWindowSubGauge.maxvalue = mySubObjectData[2];
-	}
+	if (myObject != undefined) myStatusWindowObject.text = myObject;
+	if (myGaugeCurrent != undefined) myStatusWindowGauge.value = myGaugeCurrent;
+	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
 	
 	// Отрисуем окошко
 	if (myAppVersion >= 6) { myStatusWindow.update(); }
@@ -207,9 +202,6 @@ function hideStatus() {
 	myStatusWindowObject.text = "";
 	myStatusWindowGauge.value = 0;
 	myStatusWindowGauge.maxvalue = 1;
-	myStatusWindowSubObject.text = "";
-	myStatusWindowSubGauge.value = 0;
-	myStatusWindowSubGauge.maxvalue = 1;
 	
 	if (myAppVersion >= 6) { myStatusWindow.update(); }
 	myStatusWindow.hide();
@@ -217,20 +209,18 @@ function hideStatus() {
 
 // Проверим открытые документы
 // ------------------------------------------------------
-function checkDocumentStatus() {
+function checkDocuments() {
 	if (app.documents.length == 0) {
 		alert("Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.");
 		return false;
 	}
 	
-	showStatus("ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ", ["", 0, app.documents.length], []);
-	
-	myDocuments = [];
+	showStatus("ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ", "", 0, app.documents.length);
 	
 	for (var i = 0; i < app.documents.length; i++) {
 		var myDocument = app.documents[i];
 		
-		showStatus(undefined, [myDocument.name, i, undefined], []);
+		showStatus(undefined, myDocument.name, i, undefined);
 		
 		// Посчитаем и разберём линки
 		var myLinksNormal = 0;
@@ -239,8 +229,6 @@ function checkDocumentStatus() {
 		var myLinksEmbedded = 0;
 		
 		for (var n = 0; n < myDocument.links.length; n++) {
-			
-			showStatus(undefined, [], [myDocument.links[n].name, n, myDocument.links.length]);
 			
 			switch (myDocument.links[n].status) {
 				case LinkStatus.NORMAL:
@@ -260,8 +248,6 @@ function checkDocumentStatus() {
 			}
 		}
 		
-		showStatus(undefined, [], [undefined, myDocument.links.length, myDocument.links.length]);
-		
 		// Проверим, сохранён ли документ
 		if (myDocument.modified) {
 			if (!confirm("Документ " + myDocument.name + " изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?"))
@@ -270,10 +256,13 @@ function checkDocumentStatus() {
 		}
 		
 		// Добавим документ в список
-		myDocuments.push([myDocument, myDocument == app.activeDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing]); 
+		myDocuments.push([myDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing]);
+		if (myDocument == app.activeDocument) {
+			myActiveDocument = i;
+		}
 	}
 	
-	showStatus(undefined, undefined, app.documents.length);
+	showStatus(undefined, undefined, app.documents.length, undefined);
 	hideStatus();
 	
 	return true;
@@ -529,16 +518,6 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 	}
 	
-	var myAllDocsCode = 0;
-	var myActiveDocCode = 1;
-	var mySelectedPagesCode = 2;
-	var mySelectedImagesCode = 3;
-	var myScopeOptions = [
-		[myAllDocsCode, "Все открытые документы"], // Code, UI text
-		[myActiveDocCode, "Активный документ"],
-		[mySelectedPagesCode, "Выбранные страницы"],
-		[mySelectedImagesCode, "Выбранные изображения"]];
-	
 	function myButtonClicked() {
 		for (var i = 0; i < myScopeRadioGroup.children.length; i++)
 			if (myScopeRadioGroup.children[i].value == true) {
@@ -554,7 +533,7 @@ function displayPreferences() {
 						myScopeItemsGroup.enabled = true;
 						for (var n = 0; n < myDocuments.length; n++) {
 							var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
-							if (myDocuments[n][3] == 0) {
+							if (myDocuments[n][2] == 0) {
 								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 								myItemsList.selection = n;
 							} else {
@@ -565,25 +544,18 @@ function displayPreferences() {
 					case myActiveDocCode:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
-						//myItemsList.add("item", app.activeDocument.name, n);
-						for (var n = 0; n < myDocuments.length; n++) {
-							if (myDocuments[n][1]) {
-								var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
-								if (myDocuments[n][3] == 0) {
-								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
-								myItemsList.selection = n;
-							} else {
-								newListItem.image = ScriptUI.newImage(myCircleRedFile);
-								}
-							}
+						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][0].name, n);
+						if (myDocuments[myActiveDocument][2] == 0) {
+							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+						} else {
+							newListItem.image = ScriptUI.newImage(myCircleRedFile);
 						}
 						break;
 					case mySelectedPagesCode:
 						// Выбранные страницы
-						myDocument = app.activeDocument;
-						myScopeItemsGroup.enabled = true;
-						for (var n = 0; n < myDocument.pages.length; n++) {
-							myItemsList.add("item", myDocument.pages[n].name, n);
+						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][2] == 0);
+						for (var n = 0; n < myDocuments[myActiveDocument][0].pages.length; n++) {
+							myItemsList.add("item", myDocuments[myActiveDocument][0].pages[n].name, n);
 							myItemsList.selection = n;
 						}
 						break;
@@ -591,9 +563,8 @@ function displayPreferences() {
 						// Выбранные изображения
 						myScopeItemsGroup.enabled = true;
 						break;
-					default:
-						return false;
 				}
+				myItemsList.onClick();
 			}
 	}
 	
@@ -618,8 +589,41 @@ function displayPreferences() {
 		alignChildren = ["fill", "fill"];
 	}
 	
-	var myItemsList = myScopeItemsGroup.add("listbox", undefined, undefined, {multiselect: true});
+	function listItemClicked(item) {
+		switch (myPreferences["scope"]) {
+			case myAllDocsCode:
+				var mySelectedCount = 0;
+				for (var i = 0; i < myItemsList.items.length; i++) {
+					if (myItemsList.items[i].selected) {
+						if (myDocuments[i][2] != 0) {
+							myItemsList.items[i].selected = false;
+						} else {
+							mySelectedCount++;
+						}
+					}
+				}
+				myOKButton.enabled = (mySelectedCount > 0);
+				break;
+			case myActiveDocCode:
+				myOKButton.enabled = (myDocuments[myActiveDocument][2] == 0);
+				break;
+			case mySelectedPagesCode:
+				var mySelectedCount = 0;
+				for (var i = 0; i < myItemsList.items.length; i++) {
+					if (myItemsList.items[i].selected) {
+						mySelectedCount++;
+					}
+				}
+				myOKButton.enabled = (mySelectedCount > 0);
+				break;
+			case mySelectedImagesCode:
+				myOKButton.enabled = true;
+				break;
+		}
+	}
 	
+	var myItemsList = myScopeItemsGroup.add("listbox", undefined, undefined, {multiselect: true});
+	myItemsList.onClick = listItemClicked;
 	
 	
 	// Группа резервного копирования
@@ -670,8 +674,8 @@ function displayPreferences() {
 	myButtonsGroup.orientation = "column";
 	myButtonsGroup.alignment = ["right", "top"];
 	
-	myButtonsGroup.add("button", undefined, "OK", {name: "ok"});
-	myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
+	var myOKButton = myButtonsGroup.add("button", undefined, "OK", {name: "OK"});
+	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
 	
 	// Отработать включение/выключение групп
 	myChangeFormat.onClick();
@@ -682,80 +686,130 @@ function displayPreferences() {
 	myScopeRadioGroup.children[0].onClick();
 	
 	// Показать диалог
-	if (myDialog.show() == 1) {
-		// Сделать список обрабатываемого
-		switch (myPreferences["scope"]) {
-			case myAllDocsCode:
-				for (var i = myDocuments.length - 1; i >= 0; i--) {
-					if (!myItemsList.items[i].selected) {
-						myDocuments.splice(i, 1);
-						//myDocuments.remove(myDocuments[i]);
-					}
-				}
-				break;
-			case myActiveDocCode:
-				break;
-			case mySelectedPagesCode:
-				break;
-			case mySelectedImagesCode:
-				break;
-			default:
-				return false;
-		}
-		
-		// Сохранить настройки
-		var myPreferencesArray = [];
-		for (i in myPreferences)
-			myPreferencesArray.push(i + "\t" + typeof myPreferences[i] + "\t" + myPreferences[i]);
-		
-		var myPreferencesFile = new File(myPreferencesFileName);
-		if (myPreferencesFile.open("w")) {
-			myPreferencesFile.write(myPreferencesArray.join("\n"));
-			myPreferencesFile.close();
-		} else {
-			alert("Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.");
-		}
-		
-		// Удалить временные файлы
-		myCircleGreenFile.remove();
-		myCircleRedFile.remove();
-		
-		return true;
-	} else {
-		// Удалить временные файлы
+	if (myDialog.show() == 2) {
+		// Нажата отмена, удалить временные файлы
 		myCircleGreenFile.remove();
 		myCircleRedFile.remove();
 		
 		return false;
 	}
-}
-
-// Разберём имеющиеся в документе картинки
-// ------------------------------------------------------
-function selectImages() {
-	// Получим список картинок
-	return false;
-	var myGraphics = myDocument.allGraphics;
 	
-	// Функция проверки: надо ли вообще что либо делать с картинкой
-	function checkGraphic(myGraphic) {
-		myDoProcess = false;
-		
-		if ((myPreferences["changeFormat"]) && (wrongGraphicFormat(myGraphic))) { myDoProcess = true }
-		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphic))) { myDoProcess = true }
-		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphic))) { myDoProcess = true }
-		
-		return myDoProcess;
+	// Сделать список обрабатываемого
+	switch (myPreferences["scope"]) {
+		case myAllDocsCode:
+			for (var i = myDocuments.length - 1; i >= 0; i--) {
+				if (!myItemsList.items[i].selected) {
+					myDocuments.splice(i, 1);
+				}
+			}
+			break;
+		case myActiveDocCode:
+			myDocuments = myDocuments.slice(myActiveDocument, myActiveDocument + 1);
+			break;
+		case mySelectedPagesCode:
+			for (var i = 0; i < myDocuments[myActiveDocument][0].pages.length; i++) {
+				if (myItemsList.items[i].selected) {
+					myPages.push(myDocuments[myActiveDocument][0].pages[i]);
+				}
+			}
+			break;
+		case mySelectedImagesCode:
+			break;
+		default:
+			return false;
 	}
 	
-	// Составим список картинок, нуждающихся в обработке
-	for (var i = myGraphics.length-1; i >= 0; i--) {
-		if (checkGraphic(myGraphics[i])) {
-			myGraphicsList.push(myGraphics[i]);
+	// Сохранить настройки
+	var myPreferencesArray = [];
+	for (i in myPreferences)
+		myPreferencesArray.push(i + "\t" + typeof myPreferences[i] + "\t" + myPreferences[i]);
+	
+	var myPreferencesFile = new File(myPreferencesFileName);
+	if (myPreferencesFile.open("w")) {
+		myPreferencesFile.write(myPreferencesArray.join("\n"));
+		myPreferencesFile.close();
+	} else {
+		alert("Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.");
+	}
+	
+	// Удалить временные файлы
+	myCircleGreenFile.remove();
+	myCircleRedFile.remove();
+	
+	return true;
+}
+
+// Составим список картинок для обработки
+// ------------------------------------------------------
+function selectImages() {
+	// Функция проверки: надо ли вообще что либо делать с картинкой
+	function checkGraphic(myGraphic) {
+		var doProcess = false;
+		
+		if ((myPreferences["changeFormat"]) && (wrongGraphicFormat(myGraphic))) { doProcess = true }
+		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphic))) { doProcess = true }
+		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphic))) { doProcess = true }
+		
+		if (doProcess) {
+			// Да, это криминал: добавляем
+			myGraphics.push(myGraphic);
+		}
+		
+		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+	}
+	
+	// Пройтись по всем картинкам документа
+	function checkDocument(myDocument) {
+		for (var i = 0; i < myDocument.allGraphics.length; i++) {
+			checkGraphic(myDocument.allGraphics[i]);
 		}
 	}
 	
-	//alert(myGraphicsList);
+	showStatus("ПРОВЕРКА КАРТИНОК", "", 0, 0);
+	
+	switch (myPreferences["scope"]) {
+		case myAllDocsCode:
+			var totalImages = 0;
+			for (var i = 0; i < myDocuments.length; i++) {
+				totalImages += myDocuments[i][0].allGraphics.length;
+			}
+			showStatus(undefined, undefined, 0, totalImages);
+			
+			for (var i = 0; i < myDocuments.length; i++) {
+				checkDocument(myDocuments[i][0]);
+			}
+			break;
+		case myActiveDocCode:
+			showStatus(undefined, undefined, 0, myDocuments[0][0].allGraphics.length);
+			checkDocument(myDocuments[0][0]);
+			break;
+		case mySelectedPagesCode:
+			var totalImages = 0;
+			for (var i = 0; i < myPages.length; i++) {
+				totalImages += myPages[i].allGraphics.length;
+			}
+			showStatus(undefined, undefined, 0, totalImages);
+			
+			for (var i = 0; i < myPages.length; i++) {
+				for (var n = 0; n < myPages[i].allGraphics.length; n++) {
+					checkGraphic(myPages[i].allGraphics[n]);
+				}
+			}
+			break;
+		case mySelectedImagesCode:
+			break;
+		default:
+			return false;
+	}
+	
+	hideStatus();
+	
+	// Есть что делать-то?
+	if (myGraphics.length == 0) {
+		alert("Нет картинок, нуждающихся в обработке.\nПоздравляю!");
+		return false;
+	}
+
 	return true;
 }
 
@@ -775,7 +829,7 @@ function backupImages() {
 		return false;
 	}
 	
-	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", myDocument.name, " ", 0, myGraphicsList.length);
+	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", myDocument.name, 0, myGraphics.length);
 	
 	// Вместе с картинками (чего уж там) сохраним и .indd документ
 	if (!myDocument.fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocument.name))) {
@@ -785,21 +839,21 @@ function backupImages() {
 	
 	// Скопируем оригиналы
 	var myFile;
-	for (var i = 0; i < myGraphicsList.length; i++) {
-		showStatus(undefined, myGraphicsList[i].itemLink.name, undefined, i, undefined);
+	for (var i = 0; i < myGraphics.length; i++) {
+		showStatus(undefined, myGraphics[i].itemLink.name, i, undefined);
 		
-		myFile = new File(myGraphicsList[i].itemLink.filePath);
-		if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myGraphicsList[i].itemLink.name))) {
-			alert("Ошибка при резервном копировании файла\n" + myGraphicsList[i].itemLink.filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
+		myFile = new File(myGraphics[i].itemLink.filePath);
+		if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myGraphics[i].itemLink.name))) {
+			alert("Ошибка при резервном копировании файла\n" + myGraphics[i].itemLink.filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
 			return false;
 		}
 		myFile.close();
 		
-		if (i+1 < myGraphicsList.length)
-			showStatus(undefined, myGraphicsList[i+1].itemLink.name, undefined, i+1, undefined);
+		if (i+1 < myGraphics.length)
+			showStatus(undefined, myGraphics[i+1].itemLink.name, i+1, undefined);
 	}
 	
-	showStatus(undefined, undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
+	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
 	hideStatus();
 	
 	return true;
@@ -812,7 +866,7 @@ function processImages() {
 	var myGraphic;
 	var myOriginalFile;
 	
-	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", myDocument.name, " ", 0, myGraphicsList.length);
+	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", myDocument.name, 0, myGraphics.length);
 	
 	// Функция для передачи в Фотошоп
 	function bridgeFunction(myFilePath, myDoUpsample, myDoDownsample, myDoChangeFormat) {
@@ -841,10 +895,10 @@ function processImages() {
 	}
 	
 	// Поехали
-	for (var i = 0; i < myGraphicsList.length; i++) {
-		myGraphic = myGraphicsList[i];
+	for (var i = 0; i < myGraphics.length; i++) {
+		myGraphic = myGraphics[i];
 		
-		showStatus(undefined, myGraphic.itemLink.name, undefined, i, undefined);
+		showStatus(undefined, myGraphic.itemLink.name, i, undefined);
 		
 		// Параметры скрипта для Фотошопа
 		myDoUpsample = (myPreferences["upsample"]) && (lowGraphicDPI(myGraphic));
@@ -937,11 +991,11 @@ function processImages() {
 		//alert("Скрипт:\n\n" + myPSScript);
 		//return false;
 		
-		if (i+1 < myGraphicsList.length)
-			showStatus(undefined, myGraphicsList[i+1].itemLink.name, undefined, i+1, undefined);
+		if (i+1 < myGraphics.length)
+			showStatus(undefined, myGraphics[i+1].itemLink.name, i+1, undefined);
 	}
 	
-	showStatus(undefined, undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
+	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
 	hideStatus();
 	
 	return true;
@@ -977,49 +1031,6 @@ function highGraphicDPI(myGraphic) {
 	} catch (e) {}
 	return false;
 }
-
-// Посчитать картинки с кривым форматом
-// ------------------------------------------------------
-function wrongGraphicFormatCount() {
-	var myGraphics = myDocument.allGraphics;
-	var myCount = 0;
-	
-	for (var i = myGraphics.length-1; i >= 0; i--)
-		if (wrongGraphicFormat(myGraphics[i]))
-			myCount++;
-	
-	return myCount;
-}
-
-// Посчитать картинки с слишком низким разрешением
-// ------------------------------------------------------
-function tooLowDPICount() {
-	var myGraphics = myDocument.allGraphics;
-	var myCount = 0;
-	
-	for (var i = myGraphics.length-1; i >= 0; i--) {
-		if (lowGraphicDPI(myGraphics[i]))
-			myCount++;
-	}
-	
-	return myCount;
-}
-
-// Посчитать картинки с слишком высоким разрешением
-// ------------------------------------------------------
-function tooHighDPICount() {
-	var myGraphics = myDocument.allGraphics;
-	var myCount = 0;
-	
-	for (var i = myGraphics.length-1; i >= 0; i--) {
-		if (highGraphicDPI(myGraphics[i]))
-			myCount++;
-	}
-	
-	return myCount;
-}
-
-
 
 // Доливка нулями
 // ------------------------------------------------------
