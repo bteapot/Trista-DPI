@@ -18,7 +18,7 @@ var myStatusWindowPhase;
 var myStatusWindowObject;
 var myStatusWindowGauge;
 
-var myPreferences = new Array();
+var myPreferences = [];
 var myPreferencesFileName;
 var myCachesFolder;
 
@@ -72,11 +72,11 @@ function initialSettings() {
 	myPreferences["removeClipping"] = true;
 	myPreferences["deleteOriginals"] = true;
 	
-	myPreferences["changeSize"] = true;
-	
 	myPreferences["targetDPI"] = 300;
 	
 	myPreferences["scope"] = 1;
+	
+	myPreferences["includePasteboard"] = false;
 	
 	myPreferences["downsample"] = true;
 	myPreferences["downsampleThreshold"] = 300;
@@ -256,15 +256,18 @@ function checkDocuments() {
 		}
 		
 		// Добавим документ в список
-		myDocuments.push([myDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing]);
+		myDocuments.push([myDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing, []]);
 		if (myDocument == app.activeDocument) {
 			myActiveDocument = i;
 		}
+		
+		if (myFlagStopExecution) { break; }
 	}
 	
 	showStatus(undefined, undefined, app.documents.length, undefined);
 	hideStatus();
 	
+	if (myFlagStopExecution) { return false; }
 	return true;
 }
 
@@ -511,7 +514,13 @@ function displayPreferences() {
 		margins = mySubPanelMargins;
 	}
 	
-	var myScopeRadioGroup = myScopeGroup.add("group");
+	var myScopeControlGroup = myScopeGroup.add("group");
+	with (myScopeControlGroup) {
+		orientation = "column";
+		alignChildren = ["fill", "fill"];
+	}
+	
+	var myScopeRadioGroup = myScopeControlGroup.add("group");
 	with (myScopeRadioGroup) {
 		orientation = "column";
 		//minimumSize.width = myPanelWidth;
@@ -582,6 +591,20 @@ function displayPreferences() {
 		}
 	}
 	
+	// Брать ли картинки с pasteboard
+	with (myScopeControlGroup.add("group")) {
+		orientation = "column";
+		alignChildren = ["fill", "bottom"];
+		margins = [0, 0, 0, 2];
+		
+		var myIncludePasteboard = add("checkbox", undefined, "Обрабатывать картинки на полях");
+		myIncludePasteboard.onClick = function() {
+			myPreferences["includePasteboard"] = myIncludePasteboard.value;
+		}
+		myIncludePasteboard.value = myPreferences["includePasteboard"];
+	}
+		
+	// Список элементов
 	var myScopeItemsGroup = myScopeGroup.add("group");
 	with (myScopeItemsGroup) {
 		orientation = "column";
@@ -742,17 +765,131 @@ function displayPreferences() {
 // Составим список картинок для обработки
 // ------------------------------------------------------
 function selectImages() {
+	
 	// Функция проверки: надо ли вообще что либо делать с картинкой
 	function checkGraphic(myGraphic) {
+		try {
+			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
+		} catch (e) {}
+		
+		// Линк в порядке (не embedded, не missing)?
+		if ((myGraphic.itemLink == undefined) || (myGraphic.itemLink.status != LinkStatus.NORMAL)) {
+			return;
+		}
+		
+		// Исключить картинки с pasteboard, если попросили
+		if (!myPreferences["includePasteboard"]) {
+			// Получим документ этой картинки
+			var myParentDocument = myGraphic.parent;
+			while (myParentDocument.reflect.name != "Document") {
+				myParentDocument = myParentDocument.parent;
+			}
+			
+			// Найдём разворот, на котором лежит картинка
+			var mySpread;
+			for (var i = 0; i < myParentDocument.spreads.length; i++) {
+				for (var n = 0; n < myParentDocument.spreads[i].allGraphics.length; n++) {
+					if (myGraphic == myParentDocument.spreads[i].allGraphics[n]) {
+						mySpread = myParentDocument.spreads[i];
+						break;
+					}
+				}
+			}
+			
+			var myRulerOrigin = myParentDocument.viewPreferences.rulerOrigin;
+			myParentDocument.viewPreferences.rulerOrigin = RulerOrigin.spreadOrigin;
+			
+			// Вычислим рамки страниц разворота
+			var myRawPageBounds = [mySpread.pages[0].bounds, mySpread.pages[-1].bounds];
+			var myBleed = [myParentDocument.documentPreferences.documentBleedTopOffset, myParentDocument.documentPreferences.documentBleedInsideOrLeftOffset, myParentDocument.documentPreferences.documentBleedBottomOffset, myParentDocument.documentPreferences.documentBleedOutsideOrRightOffset]
+			var myPagesBounds = [
+				myRawPageBounds[0][0] - myBleed[0],
+				myRawPageBounds[0][1] - myBleed[1],
+				myRawPageBounds[1][2] + myBleed[2],
+				myRawPageBounds[1][3] + myBleed[3]];
+			
+			var myGraphicBounds = myGraphic.visibleBounds;
+			
+			// Выпала?
+			var myOffBleeds = (
+				(myGraphicBounds[0] > myPagesBounds[2]) ||
+				(myGraphicBounds[1] > myPagesBounds[3]) ||
+				(myGraphicBounds[2] < myPagesBounds[0]) ||
+				(myGraphicBounds[3] < myPagesBounds[1]));
+			
+			/* дебаг
+			function writeBounds(myBounds) {
+				function roundNumber(number, digits) {
+					var multiple = Math.pow(10, digits);
+					var rndedNum = Math.round(number * multiple) / multiple;
+					return rndedNum;
+				}
+				function clearNumber(myNumber) {
+					return roundNumber(myNumber, 0);
+				}
+				return "[" + clearNumber(myBounds[0]) + ", " + clearNumber(myBounds[1]) + ", " + clearNumber(myBounds[2]) + ", " + clearNumber(myBounds[3]) + "]";
+			}
+			
+			if (myOffBleeds) {
+				$.writeln("-------------------------------------------------");
+				$.writeln("pagesBounds: " + writeBounds(myPagesBounds));
+				$.writeln(myGraphic.itemLink.name + ": " + writeBounds(myGraphic.visibleBounds));
+				$.writeln("offBleeds: " + myOffBleeds + "\n\n");
+				$.writeln("");
+			}
+			*/
+			
+			myParentDocument.viewPreferences.rulerOrigin = myRulerOrigin;
+			
+			if (myOffBleeds) { return; }
+		}
+		
+		// Проверяем свойства
 		var doProcess = false;
 		
 		if ((myPreferences["changeFormat"]) && (wrongGraphicFormat(myGraphic))) { doProcess = true }
 		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphic))) { doProcess = true }
 		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphic))) { doProcess = true }
 		
+		// Добавим картинку в список, если с ней что-то не так
 		if (doProcess) {
-			// Да, это криминал: добавляем
-			myGraphics.push(myGraphic);
+			// Проверим, не попадался уже ли этот файл
+			myFirstOccurrence = true;
+			for (var i = 0; i < myGraphics.length; i++) {
+				if (myGraphics[i][0] == myGraphic.itemLink.filePath) {
+					// Попадался
+					myFirstOccurrence = false;
+					myGraphics[i][1].push(myGraphic);
+					break;
+				}
+			}
+			
+			// Файл в списке не обнаружен?
+			if (myFirstOccurrence) {
+				// Добавим
+				myGraphics.push([myGraphic.itemLink.filePath, [myGraphic]]);
+			}
+			
+			// Также добавим в список для бэкапа
+			var myParent = myGraphic.parent;
+			while (myParent.reflect.name != "Document") {
+				myParent = myParent.parent;
+			}
+			for (var i = 0; i < myDocuments.length; i++) {
+				if (myParent == myDocuments[i][0]) {
+					var myBackupFirstOccurrence = true;
+					for (var n = 0; n < myDocuments[i][3].length; n++) {
+						if (myGraphic.itemLink.filePath == myDocuments[i][3][n].filePath) {
+							myBackupFirstOccurrence = false;
+							break;
+						}
+					}
+					if (myBackupFirstOccurrence) {
+						myDocuments[i][3].push(myGraphic.itemLink);
+					}
+					break;
+				}
+			}
 		}
 		
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -762,6 +899,7 @@ function selectImages() {
 	function checkDocument(myDocument) {
 		for (var i = 0; i < myDocument.allGraphics.length; i++) {
 			checkGraphic(myDocument.allGraphics[i]);
+			if (myFlagStopExecution) { return; }
 		}
 	}
 	
@@ -793,6 +931,7 @@ function selectImages() {
 			for (var i = 0; i < myPages.length; i++) {
 				for (var n = 0; n < myPages[i].allGraphics.length; n++) {
 					checkGraphic(myPages[i].allGraphics[n]);
+					if (myFlagStopExecution) { return false; }
 				}
 			}
 			break;
@@ -804,12 +943,21 @@ function selectImages() {
 	
 	hideStatus();
 	
+	if (myFlagStopExecution) { return false; }
+	
 	// Есть что делать-то?
 	if (myGraphics.length == 0) {
 		alert("Нет картинок, нуждающихся в обработке.\nПоздравляю!");
 		return false;
 	}
-
+	
+	// Убрать из списка документы без картинок под обработку
+	for (var i = myDocuments.length - 1; i >= 0; i--) {
+		if (myDocuments[i][3].length == 0) {
+			myDocuments.splice(i, 1);
+		}
+	}
+	
 	return true;
 }
 
@@ -820,43 +968,61 @@ function backupImages() {
 	if (!myPreferences["backup"])
 		return true;
 	
-	// Сделаем папку для бэкапа
-	var myDate = new Date();
-	var myBackupFolderName = myDocument.name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
-	var myBackupFolder = new Folder(myPreferences["backupFolder"] + myBackupFolderName);
-	if (!myBackupFolder.create()) {
-		alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
-		return false;
-	}
-	
-	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", myDocument.name, 0, myGraphics.length);
-	
-	// Вместе с картинками (чего уж там) сохраним и .indd документ
-	if (!myDocument.fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocument.name))) {
-		alert("Ошибка при резервном копировании файла\n" + myDocument.name + "\n\nПроверьте права доступа, свободное место и т.п.");
-		return false;
-	}
-	
-	// Скопируем оригиналы
-	var myFile;
-	for (var i = 0; i < myGraphics.length; i++) {
-		showStatus(undefined, myGraphics[i].itemLink.name, i, undefined);
+	function backupDocument(myDocumentRecord) {
+		showStatus(undefined, myDocumentRecord[0].name, undefined, undefined);
 		
-		myFile = new File(myGraphics[i].itemLink.filePath);
-		if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myGraphics[i].itemLink.name))) {
-			alert("Ошибка при резервном копировании файла\n" + myGraphics[i].itemLink.filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
+		// Сделаем папку для бэкапа
+		var myDate = new Date();
+		var myBackupFolderName = myDocumentRecord[0].name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
+		var myBackupFolder = new Folder(myPreferences["backupFolder"] + myBackupFolderName);
+		if (!myBackupFolder.create()) {
+			alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
 			return false;
 		}
-		myFile.close();
 		
-		if (i+1 < myGraphics.length)
-			showStatus(undefined, myGraphics[i+1].itemLink.name, i+1, undefined);
+		// Вместе с картинками (чего уж там) сохраним и .indd документ
+		if (!myDocumentRecord[0].fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocumentRecord[0].name))) {
+			alert("Ошибка при резервном копировании файла\n" + myDocumentRecord[0].name + "\n\nПроверьте права доступа, свободное место и т.п.");
+			return false;
+		}
+		
+		// Скопируем оригиналы
+		var myFile;
+		for (var i = 0; i < myDocumentRecord[3].length; i++) {
+			showStatus(undefined, myDocumentRecord[3][i].name, myStatusWindowGauge.value + 1, undefined);
+			
+			myFile = new File(myDocumentRecord[3][i].filePath);
+			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myDocumentRecord[3][i].name))) {
+				alert("Ошибка при резервном копировании файла\n" + myDocumentRecord[3][i].filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
+				return false;
+			}
+			myFile.close();
+			if (myFlagStopExecution) { return; }
+		}
+		
+		myStatusWindowGauge.value++;
+	}
+	
+	// Посчитаем файлы для резервного копирования
+	var backupFilesCount = 0;
+	for (var i = 0; i < myDocuments.length; i++) {
+		backupFilesCount++;
+		backupFilesCount += myDocuments[i][3].length;
+	}
+	
+	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", "", 0, backupFilesCount);
+	
+	// Пройдёмся по всем выбранным документам
+	for (var i = 0; i < myDocuments.length; i++) {
+		backupDocument(myDocuments[i]);
+		if (myFlagStopExecution) { break; }
 	}
 	
 	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
 	hideStatus();
 	
-	return true;
+	if (myFlagStopExecution) { return false; }
+	return false;
 }
 
 // Обработаем картинки
@@ -1014,9 +1180,7 @@ function wrongGraphicFormat(myGraphic) {
 // ------------------------------------------------------
 function lowGraphicDPI(myGraphic) {
 	try {
-		if ((myGraphic.effectivePpi[0] > myPreferences["upsampleThreshold"]) || (myGraphic.effectivePpi[1] > myPreferences["upsampleThreshold"])) {
-			return true;
-		}
+		return ((myGraphic.effectivePpi[0] < myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]) <= myPreferences["upsampleThreshold"]);
 	} catch (e) {}
 	return false;
 }
@@ -1025,9 +1189,7 @@ function lowGraphicDPI(myGraphic) {
 // ------------------------------------------------------
 function highGraphicDPI(myGraphic) {
 	try {
-		if ((myGraphic.effectivePpi[0] < myPreferences["downsampleThreshold"]) || (myGraphic.effectivePpi[1] < myPreferences["downsampleThreshold"])) {
-			return true;
-		}
+		return ((myGraphic.effectivePpi[0] > myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]) >= myPreferences["downsampleThreshold"]);
 	} catch (e) {}
 	return false;
 }
