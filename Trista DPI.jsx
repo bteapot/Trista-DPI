@@ -10,6 +10,7 @@
 // -----------------------------------------------------------------------------------
 
 #target indesign
+#targetengine "session" 
 
 var myAppVersion;
 
@@ -18,17 +19,31 @@ var myStatusWindowPhase;
 var myStatusWindowObject;
 var myStatusWindowGauge;
 
-var myPreferences = [];
+var myPreferences = {};
 var myPreferencesFileName;
 var myCachesFolder;
 
 var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
 
-var myDocuments = [];
+var myDocuments = {};
 var myPages = [];
-var myGraphics = [];
+var myGraphics = {};  // [filePath, [doChangeFormat, lowestDPI, hasClippingPath, withinBleeds], [graphic, .. graphic]]
 var myActiveDocument;
+
+const keyDocumentsObject = "documentsObject";
+const keyDocumentsLinksTotal = "documentsLinksTotal";
+const keyDocumentsLinksBad = "documentsLinksBad";
+const keyDocumentsBackupList = "documentsBackupList";
+
+const keyGraphicsName = "graphicsName";
+const keyGraphicsWrongFormat = "graphicsWrongFormat";
+const keyGraphicsLowestDPI = "graphicsLowestDPI";
+const keyGraphicsHasClippingPath = "graphicsHasClippingPath";
+const keyGraphicsWithinBleeds = "graphicsWithinBleeds";
+const keyGraphicsObjectList = "graphicsObjectList";
+
+const keyListItemDocument = "listItemObject";
 
 var myFlagStopExecution = false;
 
@@ -53,7 +68,7 @@ function main() {
 	if (!makeStatusWindow()) return;
 	if (!checkDocuments()) return;
 	if (!displayPreferences()) return;
-	if (!selectImages()) return;
+	if (!checkGraphics()) return;
 	if (!backupImages()) return;
 	if (!processImages()) return;
 }
@@ -256,19 +271,23 @@ function checkDocuments() {
 		}
 		
 		// Добавим документ в список
-		myDocuments.push([myDocument, myDocument.links.length, myLinksOutOfDate + myLinksMissing, []]);
+		var myDocumentPath = myDocument.fullName;
+		myDocuments[myDocumentPath] = {};
+		myDocuments[myDocumentPath][keyDocumentsObject] = myDocument;
+		myDocuments[myDocumentPath][keyDocumentsLinksTotal] = myDocument.links.length;
+		myDocuments[myDocumentPath][keyDocumentsLinksBad] = myLinksOutOfDate + myLinksMissing;
+		myDocuments[myDocumentPath][keyDocumentsBackupList] = {};
 		if (myDocument == app.activeDocument) {
-			myActiveDocument = i;
+			myActiveDocument = myDocumentPath;
 		}
 		
-		if (myFlagStopExecution) { break; }
+		if (myFlagStopExecution) { break }
 	}
 	
 	showStatus(undefined, undefined, app.documents.length, undefined);
 	hideStatus();
 	
-	if (myFlagStopExecution) { return false; }
-	return true;
+	return !myFlagStopExecution;
 }
 
 // Покажем диалог с настройками
@@ -540,11 +559,12 @@ function displayPreferences() {
 					case myAllDocsCode:
 						// Все открытые документы
 						myScopeItemsGroup.enabled = true;
-						for (var n = 0; n < myDocuments.length; n++) {
-							var newListItem = myItemsList.add("item", myDocuments[n][0].name, n);
-							if (myDocuments[n][2] == 0) {
+						for (var doc in myDocuments) {
+							var newListItem = myItemsList.add("item", myDocuments[doc][keyDocumentsObject].name);
+							newListItem[keyListItemDocument] = doc;
+							if (myDocuments[doc][keyDocumentsLinksBad] == 0) {
 								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
-								myItemsList.selection = n;
+								myItemsList.selection = myItemsList.items.length - 1;
 							} else {
 								newListItem.image = ScriptUI.newImage(myCircleRedFile);
 							}
@@ -553,8 +573,8 @@ function displayPreferences() {
 					case myActiveDocCode:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
-						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][0].name, n);
-						if (myDocuments[myActiveDocument][2] == 0) {
+						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsObject].name);
+						if (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0) {
 							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 						} else {
 							newListItem.image = ScriptUI.newImage(myCircleRedFile);
@@ -562,9 +582,10 @@ function displayPreferences() {
 						break;
 					case mySelectedPagesCode:
 						// Выбранные страницы
-						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][2] == 0);
-						for (var n = 0; n < myDocuments[myActiveDocument][0].pages.length; n++) {
-							myItemsList.add("item", myDocuments[myActiveDocument][0].pages[n].name, n);
+						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0);
+						for (var n = 0; n < myDocuments[myActiveDocument][keyDocumentsObject].pages.length; n++) {
+							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsObject].pages[n].name, n);
+							newListItem[keyListItemDocument] = myDocuments[myActiveDocument][keyDocumentsObject].pages[n];
 							myItemsList.selection = n;
 						}
 						break;
@@ -583,7 +604,7 @@ function displayPreferences() {
 		myButton.onClick = myButtonClicked;
 		
 		if (i == myAllDocsCode) {
-			myButton.enabled = (myDocuments.length > 1);
+			myButton.enabled = (arrayLength(myDocuments) > 1);
 		}
 		if (i == mySelectedImagesCode) {
 			// заглушка
@@ -618,7 +639,7 @@ function displayPreferences() {
 				var mySelectedCount = 0;
 				for (var i = 0; i < myItemsList.items.length; i++) {
 					if (myItemsList.items[i].selected) {
-						if (myDocuments[i][2] != 0) {
+						if (myDocuments[myItemsList.items[i][keyListItemDocument]][keyDocumentsLinksBad] != 0) {
 							myItemsList.items[i].selected = false;
 						} else {
 							mySelectedCount++;
@@ -628,7 +649,7 @@ function displayPreferences() {
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
 			case myActiveDocCode:
-				myOKButton.enabled = (myDocuments[myActiveDocument][2] == 0);
+				myOKButton.enabled = (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0);
 				break;
 			case mySelectedPagesCode:
 				var mySelectedCount = 0;
@@ -720,19 +741,22 @@ function displayPreferences() {
 	// Сделать список обрабатываемого
 	switch (myPreferences["scope"]) {
 		case myAllDocsCode:
-			for (var i = myDocuments.length - 1; i >= 0; i--) {
+			for (var i = 0; i < myItemsList.items.length; i++) {
 				if (!myItemsList.items[i].selected) {
-					myDocuments.splice(i, 1);
+					delete myDocuments[myItemsList.items[i][keyListItemDocument]];
 				}
 			}
 			break;
 		case myActiveDocCode:
-			myDocuments = myDocuments.slice(myActiveDocument, myActiveDocument + 1);
+			for (var doc in myDocuments) {
+				if (doc != myActiveDocument)
+					delete myDocuments[doc];
+			}
 			break;
 		case mySelectedPagesCode:
-			for (var i = 0; i < myDocuments[myActiveDocument][0].pages.length; i++) {
+			for (var i = 0; i < myItemsList.items.length; i++) {
 				if (myItemsList.items[i].selected) {
-					myPages.push(myDocuments[myActiveDocument][0].pages[i]);
+					myPages.push(myItemsList.items[i][keyDocumentsObject]);
 				}
 			}
 			break;
@@ -764,132 +788,37 @@ function displayPreferences() {
 
 // Составим список картинок для обработки
 // ------------------------------------------------------
-function selectImages() {
+function checkGraphics() {
 	
-	// Функция проверки: надо ли вообще что либо делать с картинкой
+	// Функция проверки
 	function checkGraphic(myGraphic) {
 		try {
 			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
 		} catch (e) {}
 		
 		// Линк в порядке (не embedded, не missing)?
-		if ((myGraphic.itemLink == undefined) || (myGraphic.itemLink.status != LinkStatus.NORMAL)) {
+		if (!myGraphic.hasOwnProperty("effectivePpi") || (myGraphic.itemLink == undefined) || (myGraphic.itemLink.status != LinkStatus.NORMAL)) {
 			return;
 		}
 		
-		// Исключить картинки с pasteboard, если попросили
-		if (!myPreferences["includePasteboard"]) {
-			// Получим документ этой картинки
-			var myParentDocument = myGraphic.parent;
-			while (myParentDocument.reflect.name != "Document") {
-				myParentDocument = myParentDocument.parent;
-			}
-			
-			// Найдём разворот, на котором лежит картинка
-			var mySpread;
-			for (var i = 0; i < myParentDocument.spreads.length; i++) {
-				for (var n = 0; n < myParentDocument.spreads[i].allGraphics.length; n++) {
-					if (myGraphic == myParentDocument.spreads[i].allGraphics[n]) {
-						mySpread = myParentDocument.spreads[i];
-						break;
-					}
-				}
-			}
-			
-			var myRulerOrigin = myParentDocument.viewPreferences.rulerOrigin;
-			myParentDocument.viewPreferences.rulerOrigin = RulerOrigin.spreadOrigin;
-			
-			// Вычислим рамки страниц разворота
-			var myRawPageBounds = [mySpread.pages[0].bounds, mySpread.pages[-1].bounds];
-			var myBleed = [myParentDocument.documentPreferences.documentBleedTopOffset, myParentDocument.documentPreferences.documentBleedInsideOrLeftOffset, myParentDocument.documentPreferences.documentBleedBottomOffset, myParentDocument.documentPreferences.documentBleedOutsideOrRightOffset]
-			var myPagesBounds = [
-				myRawPageBounds[0][0] - myBleed[0],
-				myRawPageBounds[0][1] - myBleed[1],
-				myRawPageBounds[1][2] + myBleed[2],
-				myRawPageBounds[1][3] + myBleed[3]];
-			
-			var myGraphicBounds = myGraphic.visibleBounds;
-			
-			// Выпала?
-			var myOffBleeds = (
-				(myGraphicBounds[0] > myPagesBounds[2]) ||
-				(myGraphicBounds[1] > myPagesBounds[3]) ||
-				(myGraphicBounds[2] < myPagesBounds[0]) ||
-				(myGraphicBounds[3] < myPagesBounds[1]));
-			
-			/* дебаг
-			function writeBounds(myBounds) {
-				function roundNumber(number, digits) {
-					var multiple = Math.pow(10, digits);
-					var rndedNum = Math.round(number * multiple) / multiple;
-					return rndedNum;
-				}
-				function clearNumber(myNumber) {
-					return roundNumber(myNumber, 0);
-				}
-				return "[" + clearNumber(myBounds[0]) + ", " + clearNumber(myBounds[1]) + ", " + clearNumber(myBounds[2]) + ", " + clearNumber(myBounds[3]) + "]";
-			}
-			
-			if (myOffBleeds) {
-				$.writeln("-------------------------------------------------");
-				$.writeln("pagesBounds: " + writeBounds(myPagesBounds));
-				$.writeln(myGraphic.itemLink.name + ": " + writeBounds(myGraphic.visibleBounds));
-				$.writeln("offBleeds: " + myOffBleeds + "\n\n");
-				$.writeln("");
-			}
-			*/
-			
-			myParentDocument.viewPreferences.rulerOrigin = myRulerOrigin;
-			
-			if (myOffBleeds) { return; }
-		}
-		
-		// Проверяем свойства
-		var doProcess = false;
-		
-		if ((myPreferences["changeFormat"]) && (wrongGraphicFormat(myGraphic))) { doProcess = true }
-		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphic))) { doProcess = true }
-		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphic))) { doProcess = true }
-		
-		// Добавим картинку в список, если с ней что-то не так
-		if (doProcess) {
-			// Проверим, не попадался уже ли этот файл
-			myFirstOccurrence = true;
-			for (var i = 0; i < myGraphics.length; i++) {
-				if (myGraphics[i][0] == myGraphic.itemLink.filePath) {
-					// Попадался
-					myFirstOccurrence = false;
-					myGraphics[i][1].push(myGraphic);
-					break;
-				}
-			}
-			
-			// Файл в списке не обнаружен?
-			if (myFirstOccurrence) {
-				// Добавим
-				myGraphics.push([myGraphic.itemLink.filePath, [myGraphic]]);
-			}
-			
-			// Также добавим в список для бэкапа
-			var myParent = myGraphic.parent;
-			while (myParent.reflect.name != "Document") {
-				myParent = myParent.parent;
-			}
-			for (var i = 0; i < myDocuments.length; i++) {
-				if (myParent == myDocuments[i][0]) {
-					var myBackupFirstOccurrence = true;
-					for (var n = 0; n < myDocuments[i][3].length; n++) {
-						if (myGraphic.itemLink.filePath == myDocuments[i][3][n].filePath) {
-							myBackupFirstOccurrence = false;
-							break;
-						}
-					}
-					if (myBackupFirstOccurrence) {
-						myDocuments[i][3].push(myGraphic.itemLink);
-					}
-					break;
-				}
-			}
+		// Проверим, не попадался уже ли этот файл
+		var myGraphicPath = myGraphic.itemLink.filePath;
+		if (myGraphicPath in myGraphics) {
+			// Попадался
+			if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][keyGraphicsLowestDPI]) { myGraphics[myGraphicPath][keyGraphicsLowestDPI] = lowestDPI(myGraphic) }
+			if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][keyGraphicsHasClippingPath] = true }
+			if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][keyGraphicsWithinBleeds] = true }
+			myGraphics[myGraphicPath][keyGraphicsObjectList][myGraphic.id] = myGraphic;
+		} else {
+			// Не попадался, добавим первое вхождение
+			myGraphics[myGraphicPath] = {};
+			myGraphics[myGraphicPath][keyGraphicsName] = myGraphic.itemLink.name;
+			myGraphics[myGraphicPath][keyGraphicsWrongFormat] = wrongGraphicFormat(myGraphic);
+			myGraphics[myGraphicPath][keyGraphicsLowestDPI] = lowestDPI(myGraphic);
+			myGraphics[myGraphicPath][keyGraphicsHasClippingPath] = hasClippingPath(myGraphic);
+			myGraphics[myGraphicPath][keyGraphicsWithinBleeds] = withinBleeds(myGraphic);
+			myGraphics[myGraphicPath][keyGraphicsObjectList] = {};
+			myGraphics[myGraphicPath][keyGraphicsObjectList][myGraphic.id] = myGraphic;
 		}
 		
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -899,7 +828,7 @@ function selectImages() {
 	function checkDocument(myDocument) {
 		for (var i = 0; i < myDocument.allGraphics.length; i++) {
 			checkGraphic(myDocument.allGraphics[i]);
-			if (myFlagStopExecution) { return; }
+			if (myFlagStopExecution) { return }
 		}
 	}
 	
@@ -908,18 +837,18 @@ function selectImages() {
 	switch (myPreferences["scope"]) {
 		case myAllDocsCode:
 			var totalImages = 0;
-			for (var i = 0; i < myDocuments.length; i++) {
-				totalImages += myDocuments[i][0].allGraphics.length;
+			for (var doc in myDocuments) {
+				totalImages += myDocuments[doc][keyDocumentsObject].allGraphics.length;
 			}
 			showStatus(undefined, undefined, 0, totalImages);
 			
-			for (var i = 0; i < myDocuments.length; i++) {
-				checkDocument(myDocuments[i][0]);
+			for (var doc in myDocuments) {
+				checkDocument(myDocuments[doc][keyDocumentsObject]);
 			}
 			break;
 		case myActiveDocCode:
-			showStatus(undefined, undefined, 0, myDocuments[0][0].allGraphics.length);
-			checkDocument(myDocuments[0][0]);
+			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][keyDocumentsObject].allGraphics.length);
+			checkDocument(myDocuments[myActiveDocument][keyDocumentsObject]);
 			break;
 		case mySelectedPagesCode:
 			var totalImages = 0;
@@ -931,7 +860,7 @@ function selectImages() {
 			for (var i = 0; i < myPages.length; i++) {
 				for (var n = 0; n < myPages[i].allGraphics.length; n++) {
 					checkGraphic(myPages[i].allGraphics[n]);
-					if (myFlagStopExecution) { return false; }
+					if (myFlagStopExecution) { return false }
 				}
 			}
 			break;
@@ -943,19 +872,49 @@ function selectImages() {
 	
 	hideStatus();
 	
-	if (myFlagStopExecution) { return false; }
+	// Нажата отмена?
+	if (myFlagStopExecution) { return false }
+	
+	// Убрать из списка некриминальные картинки
+	for (var grc in myGraphics) {
+		var myDoProcess = false;
+		
+		if ((myPreferences["changeFormat"]) && (myGraphics[grc][keyGraphicsWrongFormat])) { myDoProcess = true }
+		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((!myPreferences["includePasteboard"]) && (!myGraphics[grc][keyGraphicsWithinBleeds])) { myDoProcess = false }
+		
+		// Обрабатываем?
+		if (myDoProcess) {
+			// Добавим все вхождения картинки в подокументный список для бэкапа
+			for (var itm in myGraphics[grc][keyGraphicsObjectList]) {
+				// получим документ этого вхождения
+				var myParent = myGraphics[grc][keyGraphicsObjectList][itm].parent;
+				while (myParent.reflect.name != "Document") {
+					myParent = myParent.parent;
+				}
+				
+				// картинки ещё нет в списке бэкапа?
+				var myItemLink = myGraphics[grc][keyGraphicsObjectList][itm].itemLink;
+				var myBackupList = myDocuments[myParent.fullName][keyDocumentsBackupList];
+				if (!(myItemLink.filePath in myBackupList)) {
+					myBackupList[myItemLink.filePath] = myItemLink;
+				}
+			}
+		} else {
+			delete myGraphics[grc];
+		}
+	}
 	
 	// Есть что делать-то?
-	if (myGraphics.length == 0) {
+	if (arrayLength(myGraphics) == 0) {
 		alert("Нет картинок, нуждающихся в обработке.\nПоздравляю!");
 		return false;
 	}
 	
 	// Убрать из списка документы без картинок под обработку
-	for (var i = myDocuments.length - 1; i >= 0; i--) {
-		if (myDocuments[i][3].length == 0) {
-			myDocuments.splice(i, 1);
-		}
+	for (var doc in myDocuments) {
+		if (arrayLength(myDocuments[doc][keyDocumentsBackupList]) == 0) { delete myDocuments[doc] }
 	}
 	
 	return true;
@@ -964,40 +923,47 @@ function selectImages() {
 // Сохраним оригиналы картинок
 // ------------------------------------------------------
 function backupImages() {
+	return true;
 	// Надо?
 	if (!myPreferences["backup"])
 		return true;
 	
-	function backupDocument(myDocumentRecord) {
-		showStatus(undefined, myDocumentRecord[0].name, undefined, undefined);
+	// Функция бэкапа документа
+	function backupDocument(myItemObject) {
+		var myDocument = myItemObject[keyDocumentsObject];
+		
+		showStatus(undefined, myDocument.name, undefined, undefined);
 		
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
-		var myBackupFolderName = myDocumentRecord[0].name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
+		var myBackupFolderName = myDocument.name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
 		var myBackupFolder = new Folder(myPreferences["backupFolder"] + myBackupFolderName);
 		if (!myBackupFolder.create()) {
 			alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
-			return false;
+			myFlagStopExecution = true;
+			return;
 		}
 		
 		// Вместе с картинками (чего уж там) сохраним и .indd документ
-		if (!myDocumentRecord[0].fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocumentRecord[0].name))) {
-			alert("Ошибка при резервном копировании файла\n" + myDocumentRecord[0].name + "\n\nПроверьте права доступа, свободное место и т.п.");
-			return false;
+		if (!myDocument.fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocument.name))) {
+			alert("Ошибка при резервном копировании файла\n" + myDocument.name + "\n\nПроверьте права доступа, свободное место и т.п.");
+			myFlagStopExecution = true;
+			return;
 		}
 		
-		// Скопируем оригиналы
-		var myFile;
-		for (var i = 0; i < myDocumentRecord[3].length; i++) {
-			showStatus(undefined, myDocumentRecord[3][i].name, myStatusWindowGauge.value + 1, undefined);
+		// Скопируем оригиналы картинок
+		var myBackupList = myItemObject[keyDocumentsBackupList];
+		for (var grc in myBackupList) {
+			showStatus(undefined, myBackupList[grc].name, myStatusWindowGauge.value + 1, undefined);
 			
-			myFile = new File(myDocumentRecord[3][i].filePath);
-			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myDocumentRecord[3][i].name))) {
-				alert("Ошибка при резервном копировании файла\n" + myDocumentRecord[3][i].filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
-				return false;
+			var myFile = new File(myBackupList[grc].filePath);
+			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myBackupList[grc].name))) {
+				alert("Ошибка при резервном копировании файла\n" + myBackupList[grc].filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
+				myFlagStopExecution = true;
+				return;
 			}
 			myFile.close();
-			if (myFlagStopExecution) { return; }
+			if (myFlagStopExecution) { return }
 		}
 		
 		myStatusWindowGauge.value++;
@@ -1005,37 +971,32 @@ function backupImages() {
 	
 	// Посчитаем файлы для резервного копирования
 	var backupFilesCount = 0;
-	for (var i = 0; i < myDocuments.length; i++) {
+	for (var doc in myDocuments) {
 		backupFilesCount++;
-		backupFilesCount += myDocuments[i][3].length;
+		backupFilesCount += arrayLength(myDocuments[doc][keyDocumentsBackupList]);
 	}
 	
 	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", "", 0, backupFilesCount);
 	
 	// Пройдёмся по всем выбранным документам
-	for (var i = 0; i < myDocuments.length; i++) {
-		backupDocument(myDocuments[i]);
-		if (myFlagStopExecution) { break; }
+	for (var doc in myDocuments) {
+		backupDocument(myDocuments[doc]);
+		if (myFlagStopExecution) { break }
 	}
 	
 	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
 	hideStatus();
 	
-	if (myFlagStopExecution) { return false; }
-	return false;
+	return !myFlagStopExecution;
 }
 
 // Обработаем картинки
 // ------------------------------------------------------
 function processImages() {
-	var myPSScript = "";
-	var myGraphic;
-	var myOriginalFile;
-	
-	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", myDocument.name, 0, myGraphics.length);
+	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", "", 0, arrayLength(myGraphics));
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myDoUpsample, myDoDownsample, myDoChangeFormat) {
+	function bridgeFunction(myFilePath, myDoResample, myTargetDPI, myChangeFormatCode) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1043,106 +1004,164 @@ function processImages() {
 			var myFileRef = new File(myFilePath);
 			var myDocument = app.open(myFileRef);
 			if (myDocument == null)
-				throw X_BADDOC;
+				throw "Не удаётся открыть документ " + myFilePath;
 			
-			myDocument.close(SaveOptions.SAVECHANGES);
+			// Разрешение
+			
+			
+			// Формат
+			switch (myChangeFormatCode) {
+				case 0:
+					myDocument.close(SaveOptions.SAVECHANGES);
+					break;
+				case 1:
+					var myTIFFSaveOptions = new TiffSaveOptions();
+					with (myTIFFSaveOptions) {
+						byteOrder = ByteOrder.MACOS;
+						embedColorProfile = false;
+						imageCompression = TIFFEncoding.TIFFLZW;
+					}
+					var myNewFile = new File(myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + "tif");
+					myDocument.saveAs(myNewFile, myTIFFSaveOptions, false, Extension.LOWERCASE);
+					myDocument.close();
+					break;
+				case 2:
+					var myPSDSaveOptions = new PhotoshopSaveOptions();
+					with (myPSDSaveOptions) {
+						embedColorProfile = false;
+					}
+					var myNewFile = new File(myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + "psd");
+					myDocument.saveAs(myNewFile, myPSDSaveOptions, false, Extension.LOWERCASE);
+					myDocument.close();
+					break;
+			}
 		} catch (e) {
-			//throw e;
-			$.writeln("error catched");
-			var myBT = new BridgeTalk;
-			myBT.target = "indesign";
-			myBT.body = e.description;
-			myBT.body = e.toString();
-			myBT.body = e.toSource();
-			myBT.send();
+			throw e;
 		} finally {
 			app.displayDialogs = mySavedDisplayDialogs;
 		}
 	}
 	
 	// Поехали
-	for (var i = 0; i < myGraphics.length; i++) {
-		myGraphic = myGraphics[i];
-		
-		showStatus(undefined, myGraphic.itemLink.name, i, undefined);
+	for (var grc in myGraphics) {
+		showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		myDoUpsample = (myPreferences["upsample"]) && (lowGraphicDPI(myGraphic));
-		myDoDownsample = (myPreferences["downsample"]) && (highGraphicDPI(myGraphic));
-		myDoChangeFormat = (myPreferences["changeFormat"]) && (wrongGraphicFormat(myGraphic));
+		var myDoChangeFormat = ((myPreferences["changeFormat"]) && (myGraphics[grc][keyGraphicsWrongFormat]));
+		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][keyGraphicsHasClippingPath] ? 2 : 1) : 0);
+		var myDoResample = (
+			((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) ||
+			((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))));
 		
 		// Запускаем скрипт в фотошопе
-		var myReturnValue = true;
-		var myReturnMessage = "";
-		
 		try {
 			// Найти фотошоп
 			var myPhotoshop = "photoshop";
-			for (var i = 0; i < apps.length; i++){
-				if (apps[i].indexOf("photoshop") != -1) {
-					if (BridgeTalk.isRunning(apps[i])) {
-						if (apps[i] > myPhotoshop) {
-							myPhotoshop = apps[i];
+			for (var n = 0; n < apps.length; n++){
+				if (apps[n].indexOf("photoshop") != -1) {
+					if (BridgeTalk.isRunning(apps[n])) {
+						if (apps[n] > myPhotoshop) {
+							myPhotoshop = apps[n];
 						}
 					}
 				}
 			}
 			
-			// Запустить, ежели чего
+			// Запустить фотошоп, ежели чего
 			if (!BridgeTalk.isRunning(myPhotoshop)) {
 				BridgeTalk.launch(myPhotoshop);
 			}
-			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") {}
+			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") { BridgeTalk.pump() }
 			BridgeTalk.bringToFront("indesign");
 			
-			// Функция приёма сообщений фотошоповского скрипта
-			BridgeTalk.onReceive = function(myMessage) {
-				if (myMessage.body.length != 0) {
-					$.writeln("onReceive +: " + eval(myMessage.body));
-					myReturnMessage = eval(myMessage.body);
-					myReturnValue = false;
+			// Функция запроса дополнительного ожидания
+			function confirmTimeout() {
+				if (confirm("Фотошоп не отвечает на запросы.\nВозможно, он там чем-то занят и всё-таки скоро освободится.\n\nПодождать ещё?")) {
+					// ждём, увеличив таймаут
+					myTimeout *= 1.5;
+					return true;
 				} else {
-					// Пустое сообщение: нормальное завершение скрипта
-					$.writeln("onReceive 0: received 'undefined' message");
+					// вываливаемся
+					myReturnValue = false;
+					myFlagStopExecution = true;
+					return false;
 				}
 			}
 			
 			var myBT = new BridgeTalk;
 			myBT.target = myPhotoshop;
 			myBT.body = bridgeFunction.toString() + "\r\rbridgeFunction(\"";
-			myBT.body += myGraphic.itemLink.filePath + "\", ";
-			myBT.body += myDoUpsample + ", ";
-			myBT.body += myDoDownsample + ", ";
-			myBT.body += myDoChangeFormat;
+			myBT.body += grc + "\", ";
+			myBT.body += myDoResample + ", ";
+			myBT.body += myPreferences["targetDPI"] + ", ";
+			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
+			myBT.onReceived = function(obj) {
+				// фотошоп принял посылку
+				myProcessing = true;
+			}
 			myBT.onError = function(obj) {
-				alert("Фотошоп сообщил об ошибке:\n" + myGraphic.itemLink.filePath + "\n\n" + obj.body);
+				// фотошоп сообщил об ошибке
+				myReturnMessage = obj.body
 				myReturnValue = false;
 			}
 			myBT.onResult = function(obj) {
-				$.writeln("onResult: " + obj.body);
+				// фотошоп отработал штатно
+				myReturnValue = true;
 			}
 			myBT.onTimeout = function(obj) {
-				$.writeln("onTimeout: " + obj.body);
+				// посылка до фотошопа не дошла
+				if (myFlagStopExecution) { return }
+				if (confirmTimeout()) { myBT.send(myTimeout) }
 			}
-			myBT.send(180);
-		} catch (error) {
-			alert("Ошибка при обработке изображения\n" + myGraphic.itemLink.filePath + "\n\n" + error);
-			return false;
+			
+			var myReturnValue;
+			var myReturnMessage = "";
+			var myProcessing = false;
+			
+			myBT.send(60);
+			
+			// ждём, пока фотошоп отработает
+			// ибо, блин, эдоб не стал приделывать onTimeout()
+			var myTimeout = 60;
+			var myTimer = new Date();
+			
+			while ((myReturnValue == undefined) && !myFlagStopExecution) {
+				//$.sleep(500);
+				BridgeTalk.pump();
+				showStatus(undefined, undefined, undefined, undefined);
+				if (myProcessing) {
+					var myNow = new Date();
+					var myTimeLapsed = (myNow.getTime() - myTimer.getTime()) / 1000;
+					if (myTimeLapsed > myTimeout) {
+						$.writeln("time: " + myTimeLapsed);
+						if (confirmTimeout()) {
+							myTimer = new Date();
+						}
+					}
+				}
+			}
+		} catch (e) {
+			myReturnMessage = e.description;
+			myReturnValue = false;
 		}
 		
-		$.writeln("myReturnValue: " + myReturnValue);
+		if (myFlagStopExecution) { break }
 		
 		if (!myReturnValue) {
-			alert("Ошибка при обработке изображения\n" + myGraphic.itemLink.filePath + "\n\n" + myReturnMessage);
+			alert("Ошибка при обработке изображения\n" + grc + "\n\n" + myReturnMessage);
 			return false;
 		}
 		
+		// Пройдёмся по всем линкам
 		// Меняли формат изображения?
 		if (myDoChangeFormat) {
 			// Перелинковать на новый файл
-			myOriginalFile = new File(myGraphic.itemLink.filePath);
+			//var myOriginalFile = new File(grc);
 			//myGraphic.itemLink.filePath = 
+			
+			// Убрать clipping?
+			
 			
 			// Удалить исходник?
 			if (myPreferences["deleteOriginals"]) {
@@ -1150,22 +1169,90 @@ function processImages() {
 			}
 		} else {
 			// Обновить линк
-			myGraphic.itemLink.update();
+			//myItemLink.update();
 		}
 		
 		
 		//alert("Скрипт:\n\n" + myPSScript);
 		//return false;
 		
-		if (i+1 < myGraphics.length)
-			showStatus(undefined, myGraphics[i+1].itemLink.name, i+1, undefined);
+		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
 	}
 	
 	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
 	hideStatus();
 	
-	return true;
+	return !myFlagStopExecution;
 }
+
+// Лежит ли картинка на pasteboard
+// ------------------------------------------------------
+function withinBleeds(myGraphic) {
+	// Получим документ этой картинки
+	var myParentDocument = myGraphic.parent;
+	while (myParentDocument.reflect.name != "Document") {
+		myParentDocument = myParentDocument.parent;
+	}
+	
+	// Найдём разворот, на котором лежит картинка
+	var mySpread;
+	for (var i = 0; i < myParentDocument.spreads.length; i++) {
+		for (var n = 0; n < myParentDocument.spreads[i].allGraphics.length; n++) {
+			if (myGraphic == myParentDocument.spreads[i].allGraphics[n]) {
+				mySpread = myParentDocument.spreads[i];
+				break;
+			}
+		}
+	}
+	
+	var myRulerOrigin = myParentDocument.viewPreferences.rulerOrigin;
+	myParentDocument.viewPreferences.rulerOrigin = RulerOrigin.spreadOrigin;
+	
+	// Вычислим рамки страниц разворота
+	var myRawPageBounds = [mySpread.pages[0].bounds, mySpread.pages[-1].bounds];
+	var myBleed = [myParentDocument.documentPreferences.documentBleedTopOffset, myParentDocument.documentPreferences.documentBleedInsideOrLeftOffset, myParentDocument.documentPreferences.documentBleedBottomOffset, myParentDocument.documentPreferences.documentBleedOutsideOrRightOffset]
+	var myPagesBounds = [
+		myRawPageBounds[0][0] - myBleed[0],
+		myRawPageBounds[0][1] - myBleed[1],
+		myRawPageBounds[1][2] + myBleed[2],
+		myRawPageBounds[1][3] + myBleed[3]];
+	
+	var myGraphicBounds = myGraphic.visibleBounds;
+	
+	// Выпала?
+	var myOffBleeds = (
+		(myGraphicBounds[0] > myPagesBounds[2]) ||
+		(myGraphicBounds[1] > myPagesBounds[3]) ||
+		(myGraphicBounds[2] < myPagesBounds[0]) ||
+		(myGraphicBounds[3] < myPagesBounds[1]));
+	
+	/* дебаг
+	function writeBounds(myBounds) {
+		function roundNumber(number, digits) {
+			var multiple = Math.pow(10, digits);
+			var rndedNum = Math.round(number * multiple) / multiple;
+			return rndedNum;
+		}
+		function clearNumber(myNumber) {
+			return roundNumber(myNumber, 0);
+		}
+		return "[" + clearNumber(myBounds[0]) + ", " + clearNumber(myBounds[1]) + ", " + clearNumber(myBounds[2]) + ", " + clearNumber(myBounds[3]) + "]";
+	}
+	
+	if (myOffBleeds) {
+		$.writeln("-------------------------------------------------");
+		$.writeln("pagesBounds: " + writeBounds(myPagesBounds));
+		$.writeln(myGraphic.itemLink.name + ": " + writeBounds(myGraphic.visibleBounds));
+		$.writeln("offBleeds: " + myOffBleeds + "\n\n");
+		$.writeln("");
+	}
+	*/
+	
+	myParentDocument.viewPreferences.rulerOrigin = myRulerOrigin;
+	
+	return !myOffBleeds;
+}
+
 
 // Проверка картинки на кривость формата файла
 // ------------------------------------------------------
@@ -1178,21 +1265,37 @@ function wrongGraphicFormat(myGraphic) {
 
 // Проверка картинки на низкое dpi
 // ------------------------------------------------------
-function lowGraphicDPI(myGraphic) {
-	try {
-		return ((myGraphic.effectivePpi[0] < myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]) <= myPreferences["upsampleThreshold"]);
-	} catch (e) {}
-	return false;
+function lowGraphicDPI(myGraphicDPI) {
+	return (myGraphicDPI <= myPreferences["upsampleThreshold"]);
 }
 
 // Проверка картинки на высокое dpi
 // ------------------------------------------------------
-function highGraphicDPI(myGraphic) {
-	try {
-		return ((myGraphic.effectivePpi[0] > myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]) >= myPreferences["downsampleThreshold"]);
-	} catch (e) {}
-	return false;
+function highGraphicDPI(myGraphicDPI) {
+	return (myGraphicDPI >= myPreferences["downsampleThreshold"]);
 }
+
+// Получить самый низкий effective dpi
+// ------------------------------------------------------
+function lowestDPI(myGraphic) {
+	return (myGraphic.effectivePpi[0] < myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]);
+}
+
+// Проверка картинки на clipping
+// ------------------------------------------------------
+function hasClippingPath(myGraphic) {
+	return (myGraphic.clippingPath.clippingType != ClippingPathType.NONE);
+}
+
+// Размер dictionary
+// ------------------------------------------------------
+function arrayLength(myArrayObject) {
+	var myLength = 0;
+	
+	for (var key in myArrayObject)
+		if (myArrayObject.hasOwnProperty(key)) myLength++;
+	return myLength;
+};
 
 // Доливка нулями
 // ------------------------------------------------------
