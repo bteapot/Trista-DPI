@@ -28,15 +28,17 @@ var myHeaderColor = [0.1, 0.1, 0.1];
 
 var myDocuments = {};
 var myPages = [];
-var myGraphics = {};  // [filePath, [doChangeFormat, lowestDPI, hasClippingPath, withinBleeds], [graphic, .. graphic]]
+var myGraphics = {};
 var myActiveDocument;
 
 const keyDocumentsObject = "documentsObject";
+const keyDocumentsName = "documentsName";
 const keyDocumentsLinksTotal = "documentsLinksTotal";
 const keyDocumentsLinksBad = "documentsLinksBad";
 const keyDocumentsBackupList = "documentsBackupList";
 
 const keyGraphicsName = "graphicsName";
+const keyGraphicsNewFilePath = "graphicsNewFilePath";
 const keyGraphicsWrongFormat = "graphicsWrongFormat";
 const keyGraphicsLowestDPI = "graphicsLowestDPI";
 const keyGraphicsHasClippingPath = "graphicsHasClippingPath";
@@ -71,6 +73,7 @@ function main() {
 	if (!checkGraphics()) return;
 	if (!backupImages()) return;
 	if (!processImages()) return;
+	if (!relinkImages()) return;
 }
 
 // Стартовые настройки
@@ -273,6 +276,7 @@ function checkDocuments() {
 		// Добавим документ в список
 		var myDocumentPath = myDocument.fullName;
 		myDocuments[myDocumentPath] = {};
+		myDocuments[myDocumentPath][keyDocumentsName] = myDocument.name;
 		myDocuments[myDocumentPath][keyDocumentsObject] = myDocument;
 		myDocuments[myDocumentPath][keyDocumentsLinksTotal] = myDocument.links.length;
 		myDocuments[myDocumentPath][keyDocumentsLinksBad] = myLinksOutOfDate + myLinksMissing;
@@ -560,7 +564,7 @@ function displayPreferences() {
 						// Все открытые документы
 						myScopeItemsGroup.enabled = true;
 						for (var doc in myDocuments) {
-							var newListItem = myItemsList.add("item", myDocuments[doc][keyDocumentsObject].name);
+							var newListItem = myItemsList.add("item", myDocuments[doc][keyDocumentsName]);
 							newListItem[keyListItemDocument] = doc;
 							if (myDocuments[doc][keyDocumentsLinksBad] == 0) {
 								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
@@ -573,7 +577,7 @@ function displayPreferences() {
 					case myActiveDocCode:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
-						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsObject].name);
+						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsName]);
 						if (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0) {
 							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 						} else {
@@ -825,7 +829,7 @@ function checkGraphics() {
 	}
 	
 	// Пройтись по всем картинкам документа
-	function checkDocument(myDocument) {
+	function checkDocumentImages(myDocument) {
 		for (var i = 0; i < myDocument.allGraphics.length; i++) {
 			checkGraphic(myDocument.allGraphics[i]);
 			if (myFlagStopExecution) { return }
@@ -843,12 +847,12 @@ function checkGraphics() {
 			showStatus(undefined, undefined, 0, totalImages);
 			
 			for (var doc in myDocuments) {
-				checkDocument(myDocuments[doc][keyDocumentsObject]);
+				checkDocumentImages(myDocuments[doc][keyDocumentsObject]);
 			}
 			break;
 		case myActiveDocCode:
 			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][keyDocumentsObject].allGraphics.length);
-			checkDocument(myDocuments[myActiveDocument][keyDocumentsObject]);
+			checkDocumentImages(myDocuments[myActiveDocument][keyDocumentsObject]);
 			break;
 		case mySelectedPagesCode:
 			var totalImages = 0;
@@ -923,12 +927,11 @@ function checkGraphics() {
 // Сохраним оригиналы картинок
 // ------------------------------------------------------
 function backupImages() {
-	return true;
 	// Надо?
 	if (!myPreferences["backup"])
 		return true;
 	
-	// Функция бэкапа документа
+	// Функция бэкапа документа со всеми картинками
 	function backupDocument(myItemObject) {
 		var myDocument = myItemObject[keyDocumentsObject];
 		
@@ -955,6 +958,7 @@ function backupImages() {
 		var myBackupList = myItemObject[keyDocumentsBackupList];
 		for (var grc in myBackupList) {
 			showStatus(undefined, myBackupList[grc].name, myStatusWindowGauge.value + 1, undefined);
+			showStatus(undefined,undefined, undefined, undefined);
 			
 			var myFile = new File(myBackupList[grc].filePath);
 			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myBackupList[grc].name))) {
@@ -993,10 +997,9 @@ function backupImages() {
 // Обработаем картинки
 // ------------------------------------------------------
 function processImages() {
-	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", "", 0, arrayLength(myGraphics));
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myDoResample, myTargetDPI, myChangeFormatCode) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myChangeFormatCode) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1021,7 +1024,7 @@ function processImages() {
 						embedColorProfile = false;
 						imageCompression = TIFFEncoding.TIFFLZW;
 					}
-					var myNewFile = new File(myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + "tif");
+					var myNewFile = new File(myNewFilePath);
 					myDocument.saveAs(myNewFile, myTIFFSaveOptions, false, Extension.LOWERCASE);
 					myDocument.close();
 					break;
@@ -1030,7 +1033,7 @@ function processImages() {
 					with (myPSDSaveOptions) {
 						embedColorProfile = false;
 					}
-					var myNewFile = new File(myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + "psd");
+					var myNewFile = new File(myNewFilePath);
 					myDocument.saveAs(myNewFile, myPSDSaveOptions, false, Extension.LOWERCASE);
 					myDocument.close();
 					break;
@@ -1043,6 +1046,8 @@ function processImages() {
 	}
 	
 	// Поехали
+	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", "", 0, arrayLength(myGraphics));
+	
 	for (var grc in myGraphics) {
 		showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
 		
@@ -1052,6 +1057,15 @@ function processImages() {
 		var myDoResample = (
 			((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) ||
 			((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))));
+		
+		var myNewFilePath;
+		if (myDoChangeFormat) {
+			var myFile = new File(grc);
+			myNewFilePath = uniqueFileName(myFile.path, myFile.name.slice(0, myFile.name.lastIndexOf(".") + 1) + (myChangeFormatCode == 1 ? "tif" : "psd"));
+		} else {
+			myNewFilePath = grc;
+		}
+		myGraphics[grc][keyGraphicsNewFilePath] = myNewFilePath;
 		
 		// Запускаем скрипт в фотошопе
 		try {
@@ -1091,7 +1105,8 @@ function processImages() {
 			var myBT = new BridgeTalk;
 			myBT.target = myPhotoshop;
 			myBT.body = bridgeFunction.toString() + "\r\rbridgeFunction(\"";
-			myBT.body += grc + "\", ";
+			myBT.body += grc + "\", \"";
+			myBT.body += myNewFilePath + "\", ";
 			myBT.body += myDoResample + ", ";
 			myBT.body += myPreferences["targetDPI"] + ", ";
 			myBT.body += myChangeFormatCode;
@@ -1134,7 +1149,6 @@ function processImages() {
 					var myNow = new Date();
 					var myTimeLapsed = (myNow.getTime() - myTimer.getTime()) / 1000;
 					if (myTimeLapsed > myTimeout) {
-						$.writeln("time: " + myTimeLapsed);
 						if (confirmTimeout()) {
 							myTimer = new Date();
 						}
@@ -1153,30 +1167,64 @@ function processImages() {
 			return false;
 		}
 		
-		// Пройдёмся по всем линкам
+		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+	}
+	
+	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
+	hideStatus();
+	
+	return !myFlagStopExecution;
+}
+
+// Перецепить картинки
+// ------------------------------------------------------
+function relinkImages(myGraphic) {
+	
+	// Функция обработки линка
+	function processLink() {
 		// Меняли формат изображения?
 		if (myDoChangeFormat) {
+			
 			// Перелинковать на новый файл
-			//var myOriginalFile = new File(grc);
-			//myGraphic.itemLink.filePath = 
+			var myOriginalFile = new File(grc);
+			myGraphic.itemLink.filePath = myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + (myChangeFormatCode == 2 ? ".psd" : ".tif");
 			
 			// Убрать clipping?
 			
 			
-			// Удалить исходник?
-			if (myPreferences["deleteOriginals"]) {
-				//myOriginalFile.remove();
-			}
 		} else {
 			// Обновить линк
 			//myItemLink.update();
 		}
+	}
+	
+	// посчитать линки
+	var myTotalLinks = 0;
+	for (var grc in myGraphics) {
+		myTotalLinks += arrayLength(myGraphics[grc][keyGraphicsObjectList]);
+	}
+	
+	showStatus("ПЕРЕЛИНКОВКА ИЗОБРАЖЕНИЙ", "", 0, myTotalLinks);
+	
+	// Пройдёмся по всем картинкам
+	for (var grc in myGraphics) {
+		// Пройдёмся по всем линкам
+		var myLinksList = myGraphics[grc][keyGraphicsObjectList];
+		for (var lnk in myLinksList) {
+			showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
+			
+			alert();
+			
+			
+			if (myFlagStopExecution) { break }
+			
+			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+		}
 		
-		
-		//alert("Скрипт:\n\n" + myPSScript);
-		//return false;
-		
-		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+		// Удалить исходник?
+		if (myPreferences["deleteOriginals"]) {
+			//myOriginalFile.remove();
+		}
 	}
 	
 	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
@@ -1198,7 +1246,7 @@ function withinBleeds(myGraphic) {
 	var mySpread;
 	for (var i = 0; i < myParentDocument.spreads.length; i++) {
 		for (var n = 0; n < myParentDocument.spreads[i].allGraphics.length; n++) {
-			if (myGraphic == myParentDocument.spreads[i].allGraphics[n]) {
+			if (myGraphic.id == myParentDocument.spreads[i].allGraphics[n].id) {
 				mySpread = myParentDocument.spreads[i];
 				break;
 			}
