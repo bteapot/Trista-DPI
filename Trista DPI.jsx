@@ -10,7 +10,6 @@
 // -----------------------------------------------------------------------------------
 
 #target indesign
-#targetengine "session" 
 
 var myAppVersion;
 
@@ -75,6 +74,7 @@ function main() {
 	if (!backupImages()) return;
 	if (!processImages()) return;
 	if (!relinkImages()) return;
+	if (!saveDocuments()) return;
 }
 
 // Стартовые настройки
@@ -701,6 +701,9 @@ function displayPreferences() {
 			
 			var myBackupPath = add("edittext", undefined, myPreferences["backupFolder"]);
 			myBackupPath.preferredSize.width = mySubControlWidth;
+			myBackupPath.onChange = function() {
+				myPreferences["backupFolder"] = myBackupPath.text;
+			}
 		}
 			
 		with (myBackupGroup.add("group")) {
@@ -807,12 +810,16 @@ function checkGraphics() {
 		try {
 			var myGraphicIsOK = true;
 			if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
-			if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
+			if (myAppVersion >= 6) {
+				if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
+			} else {
+				if (!myGraphic.hasOwnProperty("effectivePpi")) myGraphicIsOK = false;
+			}
 			//if () myGraphicIsOK = false;
 		} catch (e) {
 			myGraphicIsOK = false;
 		}
-	
+		
 		// Не впорядке
 		if (!myGraphicIsOK) {
 			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -907,14 +914,11 @@ function checkGraphics() {
 			// Добавим все вхождения картинки в подокументный список для бэкапа
 			for (var itm in myGraphics[grc][keyGraphicsObjectList]) {
 				// получим документ этого вхождения
-				var myParent = myGraphics[grc][keyGraphicsObjectList][itm].parent;
-				while (myParent.reflect.name != "Document") {
-					myParent = myParent.parent;
-				}
+				var myDocument = documentOfGraphic(myGraphics[grc][keyGraphicsObjectList][itm]);
 				
 				// картинки ещё нет в списке бэкапа?
 				var myItemLink = myGraphics[grc][keyGraphicsObjectList][itm].itemLink;
-				var myBackupList = myDocuments[myParent.fullName][keyDocumentsBackupList];
+				var myBackupList = myDocuments[myDocument.fullName][keyDocumentsBackupList];
 				if (!(myItemLink.filePath in myBackupList)) {
 					myBackupList[myItemLink.filePath] = myItemLink;
 				}
@@ -1013,7 +1017,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myChangeFormatCode) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPIFactor, myChangeFormatCode) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1024,7 +1028,9 @@ function processImages() {
 				throw "Не удаётся открыть документ " + myFilePath;
 			
 			// Разрешение
-			
+			if (myDoResample) {
+				myDocument.resizeImage(undefined, undefined, myDocument.resolution * myTargetDPIFactor, ResampleMethod.BICUBIC);
+			}
 			
 			// Формат
 			switch (myChangeFormatCode) {
@@ -1039,8 +1045,8 @@ function processImages() {
 						imageCompression = TIFFEncoding.TIFFLZW;
 					}
 					var myNewFile = new File(myNewFilePath);
-					myDocument.saveAs(myNewFile, myTIFFSaveOptions, false, Extension.LOWERCASE);
-					myDocument.close();
+					myDocument.saveAs(myNewFile, myTIFFSaveOptions, true, Extension.LOWERCASE);
+					myDocument.close(SaveOptions.DONOTSAVECHANGES);
 					break;
 				case 2:
 					var myPSDSaveOptions = new PhotoshopSaveOptions();
@@ -1048,8 +1054,8 @@ function processImages() {
 						embedColorProfile = false;
 					}
 					var myNewFile = new File(myNewFilePath);
-					myDocument.saveAs(myNewFile, myPSDSaveOptions, false, Extension.LOWERCASE);
-					myDocument.close();
+					myDocument.saveAs(myNewFile, myPSDSaveOptions, true, Extension.LOWERCASE);
+					myDocument.close(SaveOptions.DONOTSAVECHANGES);
 					break;
 			}
 		} catch (e) {
@@ -1071,6 +1077,7 @@ function processImages() {
 		var myDoResample = (
 			((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) ||
 			((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))));
+		var myTargetDPIFactor = myPreferences["targetDPI"] / myGraphics[grc][keyGraphicsLowestDPI];
 		
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
@@ -1123,7 +1130,7 @@ function processImages() {
 			myBT.body += grc + "\", \"";
 			myBT.body += myNewFilePath + "\", ";
 			myBT.body += myDoResample + ", ";
-			myBT.body += myPreferences["targetDPI"] + ", ";
+			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
 			myBT.onReceived = function(obj) {
@@ -1204,17 +1211,27 @@ function relinkImages(myGraphic) {
 	
 	// Пройдёмся по всем картинкам
 	for (var grc in myGraphics) {
-		// Пройдёмся по всем линкам
+		// Пройдёмся по всем вхождениям
 		var myGraphicsList = myGraphics[grc][keyGraphicsObjectList];
 		for (var lnk in myGraphicsList) {
 			showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
 			
-			if (myGraphics[grc][keyGraphicsDoRelink]) {
-				myGraphicsList[lnk].itemLink.relink(myGraphics[grc][keyGraphicsNewFilePath]);
-			} else {
-				myGraphicsList[lnk].itemLink.update();
+			// Найдём линк в общедокументном списке линков
+			var myDocument = documentOfGraphic(myGraphicsList[lnk]);
+			var myLink;
+			for (var dcl = 0; dcl < myDocument.links.length; dcl++) {
+				if (myGraphicsList[lnk].itemLink.id == myDocument.links[dcl].id) {
+					myLink = myDocument.links[dcl];
+				}
 			}
 			
+			// Это релинк?
+			if (myGraphics[grc][keyGraphicsDoRelink]) {
+				myLink.relink(myGraphics[grc][keyGraphicsNewFilePath]);
+			}
+			
+			// Обновляем
+			myLink.update();
 			
 			if (myFlagStopExecution) { break }
 			
@@ -1234,32 +1251,66 @@ function relinkImages(myGraphic) {
 	return !myFlagStopExecution;
 }
 
+// Сохранить документы
+// ------------------------------------------------------
+function saveDocuments() {
+	showStatus("СОХРАНЕНИЕ ДОКУМЕНТОВ", "", 0, arrayLength(myDocuments));
+	
+	for (var doc in myDocuments) {
+		showStatus(undefined, myDocuments[doc][keyDocumentsObject].name, undefined, undefined);
+		
+		myDocuments[doc][keyDocumentsObject].save();
+		
+		/*
+		var myDocument = myDocuments[doc][keyDocumentsObject];
+		var myCheck = false;
+		var mySaved = myDocuments[doc][keyDocumentsObject].saved;
+		debugPrintObject(myDocuments[doc][keyDocumentsObject].saved);
+		debugPrintObject(mySaved);
+		debugPrintObject(myCheck);
+		$.writeln("-----------------");
+		$.writeln("myDocum " + myDocument.saved);
+		$.writeln("mySaved " + mySaved);
+		$.writeln("myCheck " + myCheck);
+		$.writeln("-----------------");
+		
+		if (!mySaved) {
+			myDocuments[doc][keyDocumentsObject].save();
+			$.writeln("SAVED----------------------------------------------------------");
+		}
+		*/
+		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+	}
+	
+	showStatus(undefined, undefined, myStatusWindowGauge.maxvalue, myStatusWindowGauge.maxvalue);
+	hideStatus();
+	
+	return !myFlagStopExecution;
+}
+
 // Лежит ли картинка на pasteboard
 // ------------------------------------------------------
 function withinBleeds(myGraphic) {
 	// Получим документ этой картинки
-	var myParentDocument = myGraphic.parent;
-	while (myParentDocument.reflect.name != "Document") {
-		myParentDocument = myParentDocument.parent;
-	}
+	var myDocument = documentOfGraphic(myGraphic);
 	
 	// Найдём разворот, на котором лежит картинка
 	var mySpread;
-	for (var i = 0; i < myParentDocument.spreads.length; i++) {
-		for (var n = 0; n < myParentDocument.spreads[i].allGraphics.length; n++) {
-			if (myGraphic.id == myParentDocument.spreads[i].allGraphics[n].id) {
-				mySpread = myParentDocument.spreads[i];
+	for (var i = 0; i < myDocument.spreads.length; i++) {
+		for (var n = 0; n < myDocument.spreads[i].allGraphics.length; n++) {
+			if (myGraphic.id == myDocument.spreads[i].allGraphics[n].id) {
+				mySpread = myDocument.spreads[i];
 				break;
 			}
 		}
 	}
 	
-	var myRulerOrigin = myParentDocument.viewPreferences.rulerOrigin;
-	myParentDocument.viewPreferences.rulerOrigin = RulerOrigin.spreadOrigin;
+	var myRulerOrigin = myDocument.viewPreferences.rulerOrigin;
+	myDocument.viewPreferences.rulerOrigin = RulerOrigin.spreadOrigin;
 	
 	// Вычислим рамки страниц разворота
 	var myRawPageBounds = [mySpread.pages[0].bounds, mySpread.pages[-1].bounds];
-	var myBleed = [myParentDocument.documentPreferences.documentBleedTopOffset, myParentDocument.documentPreferences.documentBleedInsideOrLeftOffset, myParentDocument.documentPreferences.documentBleedBottomOffset, myParentDocument.documentPreferences.documentBleedOutsideOrRightOffset]
+	var myBleed = [myDocument.documentPreferences.documentBleedTopOffset, myDocument.documentPreferences.documentBleedInsideOrLeftOffset, myDocument.documentPreferences.documentBleedBottomOffset, myDocument.documentPreferences.documentBleedOutsideOrRightOffset]
 	var myPagesBounds = [
 		myRawPageBounds[0][0] - myBleed[0],
 		myRawPageBounds[0][1] - myBleed[1],
@@ -1297,19 +1348,34 @@ function withinBleeds(myGraphic) {
 	}
 	*/
 	
-	myParentDocument.viewPreferences.rulerOrigin = myRulerOrigin;
+	myDocument.viewPreferences.rulerOrigin = myRulerOrigin;
 	
 	return !myOffBleeds;
 }
 
+// Получить документ картинки
+// ------------------------------------------------------
+function documentOfGraphic(myGraphic) {
+	var myParentDocument = myGraphic.parent;
+	while (myParentDocument.reflect.name != "Document") {
+		myParentDocument = myParentDocument.parent;
+	}
+	
+	return myParentDocument;
+}
 
 // Проверка картинки на кривость формата файла
 // ------------------------------------------------------
 function wrongGraphicFormat(myGraphic) {
-	if (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0}) {
-		return true;
+	try {
+		if (myAppVersion >= 6) {
+			return (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0});
+		} else {
+			return (myGraphic.itemLink.linkType in {"JPEG":0, "Portable Network Graphics (PNG)":0, "Windows Bitmap":0, "CompuServe GIF":0});
+		}
+	} catch (e) {
+		return false;
 	}
-	return false;
 }
 
 // Проверка картинки на низкое dpi
