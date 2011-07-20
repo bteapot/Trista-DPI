@@ -39,6 +39,7 @@ const keyDocumentsBackupList = "documentsBackupList";
 
 const keyGraphicsName = "graphicsName";
 const keyGraphicsNewFilePath = "graphicsNewFilePath";
+const keyGraphicsDoRelink = "graphicsDoRelink";
 const keyGraphicsWrongFormat = "graphicsWrongFormat";
 const keyGraphicsLowestDPI = "graphicsLowestDPI";
 const keyGraphicsHasClippingPath = "graphicsHasClippingPath";
@@ -798,10 +799,23 @@ function checkGraphics() {
 	function checkGraphic(myGraphic) {
 		try {
 			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
-		} catch (e) {}
+		} catch (e) {
+			showStatus(undefined, "<внедрённая картинка>", undefined, undefined);
+		}
 		
 		// Линк в порядке (не embedded, не missing)?
-		if (!myGraphic.hasOwnProperty("effectivePpi") || (myGraphic.itemLink == undefined) || (myGraphic.itemLink.status != LinkStatus.NORMAL)) {
+		try {
+			var myGraphicIsOK = true;
+			if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
+			if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
+			//if () myGraphicIsOK = false;
+		} catch (e) {
+			myGraphicIsOK = false;
+		}
+	
+		// Не впорядке
+		if (!myGraphicIsOK) {
+			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
 			return;
 		}
 		
@@ -1058,14 +1072,15 @@ function processImages() {
 			((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) ||
 			((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))));
 		
-		var myNewFilePath;
+		var myNewFilePath = "";
 		if (myDoChangeFormat) {
 			var myFile = new File(grc);
 			myNewFilePath = uniqueFileName(myFile.path, myFile.name.slice(0, myFile.name.lastIndexOf(".") + 1) + (myChangeFormatCode == 1 ? "tif" : "psd"));
+			myGraphics[grc][keyGraphicsNewFilePath] = myNewFilePath;
+			myGraphics[grc][keyGraphicsDoRelink] = true;
 		} else {
-			myNewFilePath = grc;
+			myGraphics[grc][keyGraphicsDoRelink] = false;
 		}
-		myGraphics[grc][keyGraphicsNewFilePath] = myNewFilePath;
 		
 		// Запускаем скрипт в фотошопе
 		try {
@@ -1179,25 +1194,6 @@ function processImages() {
 // Перецепить картинки
 // ------------------------------------------------------
 function relinkImages(myGraphic) {
-	
-	// Функция обработки линка
-	function processLink() {
-		// Меняли формат изображения?
-		if (myDoChangeFormat) {
-			
-			// Перелинковать на новый файл
-			var myOriginalFile = new File(grc);
-			myGraphic.itemLink.filePath = myFilePath.slice(0, myFilePath.lastIndexOf(".") + 1) + (myChangeFormatCode == 2 ? ".psd" : ".tif");
-			
-			// Убрать clipping?
-			
-			
-		} else {
-			// Обновить линк
-			//myItemLink.update();
-		}
-	}
-	
 	// посчитать линки
 	var myTotalLinks = 0;
 	for (var grc in myGraphics) {
@@ -1209,11 +1205,15 @@ function relinkImages(myGraphic) {
 	// Пройдёмся по всем картинкам
 	for (var grc in myGraphics) {
 		// Пройдёмся по всем линкам
-		var myLinksList = myGraphics[grc][keyGraphicsObjectList];
-		for (var lnk in myLinksList) {
+		var myGraphicsList = myGraphics[grc][keyGraphicsObjectList];
+		for (var lnk in myGraphicsList) {
 			showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
 			
-			alert();
+			if (myGraphics[grc][keyGraphicsDoRelink]) {
+				myGraphicsList[lnk].itemLink.relink(myGraphics[grc][keyGraphicsNewFilePath]);
+			} else {
+				myGraphicsList[lnk].itemLink.update();
+			}
 			
 			
 			if (myFlagStopExecution) { break }
@@ -1222,8 +1222,9 @@ function relinkImages(myGraphic) {
 		}
 		
 		// Удалить исходник?
-		if (myPreferences["deleteOriginals"]) {
-			//myOriginalFile.remove();
+		if ((myPreferences["deleteOriginals"]) && (myGraphics[grc][keyGraphicsDoRelink])) {
+			var myOriginalFile = new File(grc);
+			myOriginalFile.remove();
 		}
 	}
 	
