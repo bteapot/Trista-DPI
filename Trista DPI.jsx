@@ -113,7 +113,7 @@ function initialSettings() {
 	} else if ($.os.toLowerCase().indexOf("windows") != -1) {
 		// Виндовз
 		myPreferencesFileName = Folder.userData + "/ru.colorbox.trista-dpi.txt";
-		myPreferences["backupFolder"] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
+		myPreferences["backupFolder"] = Folder.myDocuments + "/300dpi backup/";
 		myTempFolder = Folder.temp + "/";
 	}
 
