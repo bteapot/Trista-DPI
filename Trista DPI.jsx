@@ -11,8 +11,6 @@
 
 #target indesign
 
-// Глобальные переменные (суть зло, но что делать)
-// ------------------------------------------------------
 var myAppVersion;
 
 var myStatusWindow;
@@ -32,20 +30,6 @@ var myPages = [];
 var myGraphics = {};
 var myActiveDocument;
 
-var myFlagStopExecution = false;
-
-var myAllDocsCode = 0;
-var myActiveDocCode = 1;
-var mySelectedPagesCode = 2;
-var mySelectedImagesCode = 3;
-var myScopeOptions = [
-	[myAllDocsCode, "Все открытые документы"], // Code, UI text
-	[myActiveDocCode, "Активный документ"],
-	[mySelectedPagesCode, "Выбранные страницы"],
-	[mySelectedImagesCode, "Выбранные изображения"]];
-
-var myAppSettingsPreserveBounds;
-
 const keyDocumentsObject = "documentsObject";
 const keyDocumentsName = "documentsName";
 const keyDocumentsLinksTotal = "documentsLinksTotal";
@@ -63,20 +47,25 @@ const keyGraphicsObjectList = "graphicsObjectList";
 
 const keyListItemDocument = "listItemObject";
 
+var myFlagStopExecution = false;
+
+var myAllDocsCode = 0;
+var myActiveDocCode = 1;
+var mySelectedPagesCode = 2;
+var mySelectedImagesCode = 3;
+var myScopeOptions = [
+	[myAllDocsCode, "Все открытые документы"], // Code, UI text
+	[myActiveDocCode, "Активный документ"],
+	[mySelectedPagesCode, "Выбранные страницы"],
+	[mySelectedImagesCode, "Выбранные изображения"]];
+
+
 
 main();
 
 // "Стартую!" (эпитафия на могиле Неизвестной Секретарши)
 // ------------------------------------------------------
 function main() {
-	preserveAppSettings();
-	process();
-	restoreAppSettings();
-}
-
-// Главная последовательность
-// ------------------------------------------------------
-function process() {
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
 	if (!checkDocuments()) return;
@@ -88,21 +77,7 @@ function process() {
 	if (!saveDocuments()) return;
 }
 
-
-// Запомнить настройки приложения
-// ------------------------------------------------------
-function preserveAppSettings() {
-	myAppSettingsPreserveBounds = app.imagePreferences.preserveBounds;
-	app.imagePreferences.preserveBounds = false;
-}
-
-// Восстановить настройки приложения
-// ------------------------------------------------------
-function restoreAppSettings() {
-	app.imagePreferences.preserveBounds = myAppSettingsPreserveBounds;
-}
-
-// Стартовые настройки скрипта
+// Стартовые настройки
 // ------------------------------------------------------
 function initialSettings() {
 	app.scriptPreferences.userInteractionLevel = UserInteractionLevels.interactWithAll;
