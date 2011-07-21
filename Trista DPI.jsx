@@ -1231,7 +1231,9 @@ function relinkImages(myGraphic) {
 			}
 			
 			// Обновляем
-			myLink.update();
+			if (myLink.status == LinkStatus.LINK_OUT_OF_DATE) {
+				myLink.update();
+			}
 			
 			if (myFlagStopExecution) { break }
 			
