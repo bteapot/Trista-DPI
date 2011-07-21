@@ -20,7 +20,7 @@ var myStatusWindowGauge;
 
 var myPreferences = {};
 var myPreferencesFileName;
-var myCachesFolder;
+var myTempFolder;
 
 var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
@@ -107,14 +107,14 @@ function initialSettings() {
 	// Определение платформы
 	if ($.os.toLowerCase().indexOf("macintosh") != -1) {
 		// Маки
-		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.tristatnd.txt";
-		myPreferences["backupFolder"] = "~/Documents/300dpi backup/";
-		myCachesFolder = "~/Library/Caches/";
+		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.trista-dpi.txt";
+		myPreferences["backupFolder"] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
+		myTempFolder = Folder.temp + "/";
 	} else if ($.os.toLowerCase().indexOf("windows") != -1) {
 		// Виндовз
-		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.tristatnd.txt";
-		myPreferences["backupFolder"] = "~/Documents/300dpi backup/";
-		myCachesFolder = "~/Library/Caches/";
+		myPreferencesFileName = Folder.userData + "/ru.colorbox.trista-dpi.txt";
+		myPreferences["backupFolder"] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
+		myTempFolder = Folder.temp + "/";
 	}
 
 	// Загрузить настройки
@@ -348,7 +348,7 @@ function displayPreferences() {
 	
 	// Функция записи картинок
 	function writePicture(myFileName, myData) {
-		var myFile = new File(myCachesFolder + myFileName);
+		var myFile = new File(myTempFolder + myFileName);
 		if (myFile.open("w")) {
 			myFile.encoding = "BINARY";
 			myFile.write(decode64(myData));
@@ -699,10 +699,10 @@ function displayPreferences() {
 			orientation = "row";
 			alignChildren = ["fill", "top"];
 			
-			var myBackupPath = add("edittext", undefined, myPreferences["backupFolder"]);
+			var myBackupPath = add("edittext", undefined, Folder.decode(myPreferences["backupFolder"]));
 			myBackupPath.preferredSize.width = mySubControlWidth;
 			myBackupPath.onChange = function() {
-				myPreferences["backupFolder"] = myBackupPath.text;
+				myPreferences["backupFolder"] = Folder.encode(myBackupPath.text);
 			}
 		}
 			
@@ -714,7 +714,7 @@ function displayPreferences() {
 			myBackupChooseButton.onClick = function() {
 				var mySelectedFolder = Folder.selectDialog();
 				if (mySelectedFolder != null) {
-					myPreferences["backupFolder"] = mySelectedFolder.fullName + "/";
+					myPreferences["backupFolder"] = Folder.encode(mySelectedFolder.fullName) + "/";
 					myBackupPath.text = mySelectedFolder.fullName + "/";
 				}
 			}
@@ -776,8 +776,8 @@ function displayPreferences() {
 	
 	// Сохранить настройки
 	var myPreferencesArray = [];
-	for (i in myPreferences)
-		myPreferencesArray.push(i + "\t" + typeof myPreferences[i] + "\t" + myPreferences[i]);
+	for (var prf in myPreferences)
+		myPreferencesArray.push(prf + "\t" + typeof myPreferences[prf] + "\t" + myPreferences[prf]);
 	
 	var myPreferencesFile = new File(myPreferencesFileName);
 	if (myPreferencesFile.open("w")) {
@@ -958,7 +958,7 @@ function backupImages() {
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
 		var myBackupFolderName = myDocument.name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
-		var myBackupFolder = new Folder(myPreferences["backupFolder"] + myBackupFolderName);
+		var myBackupFolder = new Folder(Folder.decode(myPreferences["backupFolder"]) + myBackupFolderName);
 		if (!myBackupFolder.create()) {
 			alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
 			myFlagStopExecution = true;
