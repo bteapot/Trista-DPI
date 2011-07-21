@@ -210,7 +210,7 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
 	
 	// Отрисуем окошко
-	if (myAppVersion == 6) { myStatusWindow.update(); }
+	if (myAppVersion >= 6) { myStatusWindow.update(); }
 }
 
 // Спрячем окно с градусником
@@ -222,7 +222,7 @@ function hideStatus() {
 	myStatusWindowGauge.value = 0;
 	myStatusWindowGauge.maxvalue = 1;
 	
-	if (myAppVersion == 6) { myStatusWindow.update(); }
+	if (myAppVersion >= 6) { myStatusWindow.update(); }
 	myStatusWindow.hide();
 }
 
@@ -810,12 +810,9 @@ function checkGraphics() {
 		try {
 			var myGraphicIsOK = true;
 			if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
-			if (!myGraphic.visibleBounds == undefined) myGraphicIsOK = false;
 			if (myAppVersion >= 6) {
 				if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
 			} else {
-				if (myGraphic.reflect.name != "Image")  myGraphicIsOK = false;
-				if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
 				if (!myGraphic.hasOwnProperty("effectivePpi")) myGraphicIsOK = false;
 			}
 			//if () myGraphicIsOK = false;
@@ -1020,7 +1017,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPIFactor, myChangeFormatCode) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1033,7 +1030,6 @@ function processImages() {
 			// Разрешение
 			if (myDoResample) {
 				myDocument.resizeImage(undefined, undefined, myDocument.resolution * myTargetDPIFactor, ResampleMethod.BICUBIC);
-				myDocument.resizeImage(undefined, undefined, myTargetDPI, ResampleMethod.NONE);
 			}
 			
 			// Формат
@@ -1134,7 +1130,6 @@ function processImages() {
 			myBT.body += grc + "\", \"";
 			myBT.body += myNewFilePath + "\", ";
 			myBT.body += myDoResample + ", ";
-			myBT.body += myPreferences["targetDPI"] + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
@@ -1268,6 +1263,24 @@ function saveDocuments() {
 		
 		myDocuments[doc][keyDocumentsObject].save();
 		
+		/*
+		var myDocument = myDocuments[doc][keyDocumentsObject];
+		var myCheck = false;
+		var mySaved = myDocuments[doc][keyDocumentsObject].saved;
+		debugPrintObject(myDocuments[doc][keyDocumentsObject].saved);
+		debugPrintObject(mySaved);
+		debugPrintObject(myCheck);
+		$.writeln("-----------------");
+		$.writeln("myDocum " + myDocument.saved);
+		$.writeln("mySaved " + mySaved);
+		$.writeln("myCheck " + myCheck);
+		$.writeln("-----------------");
+		
+		if (!mySaved) {
+			myDocuments[doc][keyDocumentsObject].save();
+			$.writeln("SAVED----------------------------------------------------------");
+		}
+		*/
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
 	}
 	
