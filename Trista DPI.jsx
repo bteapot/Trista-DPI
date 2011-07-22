@@ -30,22 +30,39 @@ var myPages = [];
 var myGraphics = {};
 var myActiveDocument;
 
-const keyDocumentsObject = "documentsObject";
-const keyDocumentsName = "documentsName";
-const keyDocumentsLinksTotal = "documentsLinksTotal";
-const keyDocumentsLinksBad = "documentsLinksBad";
-const keyDocumentsBackupList = "documentsBackupList";
+const kPrefsChangeFormat = "changeFormat";
+const kPrefsClippedImagesToPSD = "clippedImagesToPSD";
+const kPrefsRemoveClipping = "removeClipping";
+const kPrefsDeleteOriginals = "deleteOriginals";
+const kPrefsScope = "scope";
+const kPrefsIncludePasteboard = "includePasteboard";
+const kPrefsColorTargetDPI = "colorTargetDPI";
+const kPrefsColorDownsample = "colorDownsample";
+const kPrefsColorUpsample = "colorUpsample";
+const kPrefsColorDelta = "colorDelta";
+const kPrefsBitmapTargetDPI = "bitmapTargetDPI";
+const kPrefsBitmapDownsample = "bitmapDownsample";
+const kPrefsBitmapUpsample = "bitmapUpsample";
+const kPrefsBitmapDelta = "bitmapDelta";
+const kPrefsBackup = "backup";
+const kPrefsBackupFolder = "backupFolder";
 
-const keyGraphicsName = "graphicsName";
-const keyGraphicsNewFilePath = "graphicsNewFilePath";
-const keyGraphicsDoRelink = "graphicsDoRelink";
-const keyGraphicsWrongFormat = "graphicsWrongFormat";
-const keyGraphicsLowestDPI = "graphicsLowestDPI";
-const keyGraphicsHasClippingPath = "graphicsHasClippingPath";
-const keyGraphicsWithinBleeds = "graphicsWithinBleeds";
-const keyGraphicsObjectList = "graphicsObjectList";
+const kDocumentsObject = "documentsObject";
+const kDocumentsName = "documentsName";
+const kDocumentsLinksTotal = "documentsLinksTotal";
+const kDocumentsLinksBad = "documentsLinksBad";
+const kDocumentsBackupList = "documentsBackupList";
 
-const keyListItemDocument = "listItemObject";
+const kGraphicsName = "graphicsName";
+const kGraphicsNewFilePath = "graphicsNewFilePath";
+const kGraphicsDoRelink = "graphicsDoRelink";
+const kGraphicsWrongFormat = "graphicsWrongFormat";
+const kGraphicsLowestDPI = "graphicsLowestDPI";
+const kGraphicsHasClippingPath = "graphicsHasClippingPath";
+const kGraphicsWithinBleeds = "graphicsWithinBleeds";
+const kGraphicsObjectList = "graphicsObjectList";
+
+const kListItemDocument = "listItemObject";
 
 var myFlagStopExecution = false;
 
@@ -109,34 +126,35 @@ function initialSettings() {
 	myAppVersion = Number(app.version.match(/^\d+/));
 	
 	// Настройки по умолчанию
-	myPreferences["changeFormat"] = true;
-	myPreferences["clippedImagesToPSD"] = true;
-	myPreferences["removeClipping"] = true;
-	myPreferences["deleteOriginals"] = true;
+	myPreferences[kPrefsChangeFormat] = true;
+	myPreferences[kPrefsClippedImagesToPSD] = true;
+	myPreferences[kPrefsRemoveClipping] = true;
+	myPreferences[kPrefsDeleteOriginals] = true;
 	
-	myPreferences["targetDPI"] = 300;
+	myPreferences[kPrefsScope] = 1;
+	myPreferences[kPrefsIncludePasteboard] = false;
 	
-	myPreferences["scope"] = 1;
+	myPreferences[kPrefsColorTargetDPI] = 300;
+	myPreferences[kPrefsColorDownsample] = true;
+	myPreferences[kPrefsColorUpsample] = false;
+	myPreferences[kPrefsColorDelta] = 50;
+	myPreferences[kPrefsBitmapTargetDPI] = 1200;
+	myPreferences[kPrefsBitmapDownsample] = true;
+	myPreferences[kPrefsBitmapUpsample] = false;
+	myPreferences[kPrefsBitmapDelta] = 150;
 	
-	myPreferences["includePasteboard"] = false;
-	
-	myPreferences["downsample"] = true;
-	myPreferences["downsampleThreshold"] = 300;
-	myPreferences["upsample"] = false;
-	myPreferences["upsampleThreshold"] = 300;
-	
-	myPreferences["backup"] = true;
+	myPreferences[kPrefsBackup] = true;
 	
 	// Определение платформы
 	if ($.os.toLowerCase().indexOf("macintosh") != -1) {
 		// Маки
 		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.trista-dpi.txt";
-		myPreferences["backupFolder"] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
+		myPreferences[kPrefsBackupFolder] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
 		myTempFolder = Folder.temp + "/";
 	} else if ($.os.toLowerCase().indexOf("windows") != -1) {
 		// Виндовз
 		myPreferencesFileName = Folder.userData + "/ru.colorbox.trista-dpi.txt";
-		myPreferences["backupFolder"] = Folder.myDocuments + "/300dpi backup/";
+		myPreferences[kPrefsBackupFolder] = Folder.myDocuments + "/300dpi backup/";
 		myTempFolder = Folder.temp + "/";
 	}
 
@@ -300,11 +318,11 @@ function checkDocuments() {
 		// Добавим документ в список
 		var myDocumentPath = myDocument.fullName;
 		myDocuments[myDocumentPath] = {};
-		myDocuments[myDocumentPath][keyDocumentsName] = myDocument.name;
-		myDocuments[myDocumentPath][keyDocumentsObject] = myDocument;
-		myDocuments[myDocumentPath][keyDocumentsLinksTotal] = myDocument.links.length;
-		myDocuments[myDocumentPath][keyDocumentsLinksBad] = myLinksOutOfDate + myLinksMissing;
-		myDocuments[myDocumentPath][keyDocumentsBackupList] = {};
+		myDocuments[myDocumentPath][kDocumentsName] = myDocument.name;
+		myDocuments[myDocumentPath][kDocumentsObject] = myDocument;
+		myDocuments[myDocumentPath][kDocumentsLinksTotal] = myDocument.links.length;
+		myDocuments[myDocumentPath][kDocumentsLinksBad] = myLinksOutOfDate + myLinksMissing;
+		myDocuments[myDocumentPath][kDocumentsBackupList] = {};
 		if (myDocument == app.activeDocument) {
 			myActiveDocument = myDocumentPath;
 		}
@@ -402,10 +420,10 @@ function displayPreferences() {
 		
 		var myChangeFormat = add("checkbox", undefined, "JPEG, PNG и т.п. в TIFF");
 		myChangeFormat.onClick = function() {
-			myPreferences["changeFormat"] = myChangeFormat.value;
+			myPreferences[kPrefsChangeFormat] = myChangeFormat.value;
 			myChangeFormatGroup.enabled = myChangeFormat.value;
 		}
-		myChangeFormat.value = myPreferences["changeFormat"];
+		myChangeFormat.value = myPreferences[kPrefsChangeFormat];
 		
 		var myChangeFormatGroup = add("group");
 		myChangeFormatGroup.orientation = "column";
@@ -418,10 +436,10 @@ function displayPreferences() {
 			
 			var myClippedImagesToPSD = add("checkbox", undefined, "С обтравкой в PSD");
 			myClippedImagesToPSD.onClick = function() {
-				myPreferences["clippedImagesToPSD"] = myClippedImagesToPSD.value;
+				myPreferences[kPrefsClippedImagesToPSD] = myClippedImagesToPSD.value;
 				myClippingGroup.enabled = myClippedImagesToPSD.value;
 			}
-			myClippedImagesToPSD.value = myPreferences["clippedImagesToPSD"];
+			myClippedImagesToPSD.value = myPreferences[kPrefsClippedImagesToPSD];
 			
 			var myClippingGroup = add("group");
 			with (myClippingGroup) {
@@ -431,123 +449,189 @@ function displayPreferences() {
 				
 				var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
 				myRemoveClipping.onClick = function() {
-					myPreferences["removeClipping"] = myRemoveClipping.value;
+					myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
 				}
-				myRemoveClipping.value = myPreferences["removeClipping"];
+				myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
 			}
 		
 			var myDeleteOriginals = add("checkbox", undefined, "Удалять оригиналы изображений");
 			myDeleteOriginals.onClick = function() {
-				myPreferences["deleteOriginals"] = myDeleteOriginals.value;
+				myPreferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
 			}
-			myDeleteOriginals.value = myPreferences["deleteOriginals"];
+			myDeleteOriginals.value = myPreferences[kPrefsDeleteOriginals];
 		}
 	}
 	
 	// Группа изменения разрешения
-	with (myParametersGroup.add("panel", undefined, "Разрешение (dpi)")) {
-		orientation = "row";
+	with (myParametersGroup.add("panel", undefined, "Изменять разрешение (dpi)")) {
+		orientation = "column";
 		minimumSize.width = myPanelWidth;
-		alignChildren = ["left", "bottom"];
+		alignChildren = ["left", "center"];
 		margins = mySubPanelMargins;
 		
+		// Цветные изображения
 		with (add("group")) {
-			orientation = "column";
-			alignChildren = ["left", "top"];
-			minimumSize.width = myPanelWidth / 4;
+			orientation = "row";
+			alignChildren = ["right", "center"];
 			
-			var myUpsample = add("checkbox", undefined, "Увеличивать");
-			myUpsample.onClick = function() {
-				myPreferences["upsample"] = myUpsample.value;
-				myUpsampleThreshold.enabled = myUpsample.value;
-			}
-			myUpsample.value = myPreferences["upsample"];
-			
-			var myUpsampleThreshold = add("edittext");
-			myUpsampleThreshold.characters = 6;
-			myUpsampleThreshold.text = myPreferences["upsampleThreshold"];
-			myUpsampleThreshold.justify = "right";
-			myUpsampleThreshold.onChange = function() {
-				if (parseInt(myUpsampleThreshold.text) >= parseInt(myTargetDPI.text)) {
-					alert("Логическая ошибка.\nЖелаемое разрешение должно быть больше нижнего порога.");
-					myUpsampleThreshold.text = myPreferences["upsampleThreshold"];
-					return;
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				minimumSize.width = myPanelWidth / 3;
+				
+				with (add("statictext", undefined, "Color и Grayscale:")) {
+					justify = "right";
 				}
-				myPreferences["upsampleThreshold"] = parseInt(myUpsampleThreshold.text);
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorUpsample = add("checkbox", undefined, "+");
+				myColorUpsample.value = myPreferences[kPrefsColorUpsample];
+				myColorUpsample.onClick = function() {
+					myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorDownsample = add("checkbox", undefined, "-");
+				myColorDownsample.value = myPreferences[kPrefsColorDownsample];
+				myColorDownsample.onClick = function() {
+					myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
+				}
+			}
+			
+				
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, " до:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorTargetDPI = add("edittext", undefined, myPreferences[kPrefsColorTargetDPI]);
+				myColorTargetDPI.characters = 6;
+				myColorTargetDPI.justify = "right";
+				myColorTargetDPI.onChange = function() {
+					myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, "∆:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorDelta = add("edittext", undefined, myPreferences[kPrefsColorDelta]);
+				myColorDelta.characters = 6;
+				myColorDelta.justify = "right";
+				myColorDelta.onChange = function() {
+					myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
+				}
 			}
 		}
 		
+		// Битмап изображения
 		with (add("group")) {
-			orientation = "column";
-			alignChildren = ["center", "top"];
+			orientation = "row";
+			alignChildren = ["right", "center"];
 			
-			with (add("statictext", undefined, "<")) {
-				justify = "center";
-			}
-		}
-		
-		with (add("group")) {
-			orientation = "column";
-			alignChildren = ["left", "top"];
-			minimumSize.width = myPanelWidth / 4;
-			
-			with (add("statictext", undefined, "Желаемое")) {
-				justify = "left";
-			}
-			
-			var myTargetDPI = add("edittext");
-			myTargetDPI.characters = 6;
-			myTargetDPI.text = myPreferences["targetDPI"];
-			myTargetDPI.justify = "right";
-			myTargetDPI.onChange = function() {
-				if (parseInt(myUpsampleThreshold.text) >= parseInt(myTargetDPI.text)) {
-					alert("Логическая ошибка.\nЖелаемое разрешение должно быть больше нижнего порога.");
-					myTargetDPI.text = myPreferences["targetDPI"];
-					return;
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				minimumSize.width = myPanelWidth / 3;
+				
+				with (add("statictext", undefined, "Bitmap:")) {
+					justify = "right";
 				}
-				if (parseInt(myTargetDPI.text) >= parseInt(myDownsampleThreshold.text)) {
-					alert("Логическая ошибка.\nЖелаемое разрешение должно быть меньше верхнего порога.");
-					myTargetDPI.text = myPreferences["targetDPI"];
-					return;
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myBitmapUpsample = add("checkbox", undefined, "+");
+				myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
+				myBitmapUpsample.onClick = function() {
+					myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
 				}
-				myPreferences["targetDPI"] = parseInt(myTargetDPI.text);
 			}
-		}
-		
-		with (add("group")) {
-			orientation = "column";
-			alignChildren = ["center", "top"];
 			
-			with (add("statictext", undefined, "<")) {
-				justify = "left";
-			}
-		}
-		
-		with (add("group")) {
-			orientation = "column";
-			alignChildren = ["left", "top"];
-			minimumSize.width = myPanelWidth / 4;
-			
-			var myDownsample = add("checkbox", undefined, "Уменьшать");
-			myDownsample.onClick = function() {
-				myPreferences["downsample"] = myDownsample.value;
-				myDownsampleThreshold.enabled = myDownsample.value;
-			}
-			myDownsample.value = myPreferences["downsample"];
-			
-			var myDownsampleThreshold = add("edittext");
-			myDownsampleThreshold.characters = 6;
-			myDownsampleThreshold.text = myPreferences["downsampleThreshold"];
-			myDownsampleThreshold.justify = "right";
-			myDownsampleThreshold.onChange = function() {
-				if (parseInt(myTargetDPI.text) >= parseInt(myDownsampleThreshold.text)) {
-					alert("Логическая ошибка.\nЖелаемое разрешение должно быть меньше верхнего порога.");
-					myDownsampleThreshold.text = myPreferences["downsampleThreshold"];
-					myDownsampleThreshold.active = false;
-					myDownsampleThreshold.active = true;
-					return;
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myBitmapDownsample = add("checkbox", undefined, "-");
+				myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
+				myBitmapDownsample.onClick = function() {
+					myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
 				}
-				myPreferences["downsampleThreshold"] = parseInt(myDownsampleThreshold.text);
+			}
+			
+				
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, " до:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myBitmapTargetDPI = add("edittext", undefined, myPreferences[kPrefsBitmapTargetDPI]);
+				myBitmapTargetDPI.characters = 6;
+				myBitmapTargetDPI.justify = "right";
+				myBitmapTargetDPI.onChange = function() {
+					myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, "∆:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myBitmapDelta = add("edittext", undefined, myPreferences[kPrefsBitmapDelta]);
+				myBitmapDelta.characters = 6;
+				myBitmapDelta.justify = "right";
+				myBitmapDelta.onChange = function() {
+					myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
+				}
 			}
 		}
 	}
@@ -577,20 +661,20 @@ function displayPreferences() {
 	function myButtonClicked() {
 		for (var i = 0; i < myScopeRadioGroup.children.length; i++)
 			if (myScopeRadioGroup.children[i].value == true) {
-				myPreferences["scope"] = i;
+				myPreferences[kPrefsScope] = i;
 				
 				// очистить список
 				myItemsList.removeAll();
 				
 				// прореагировать в зависимости от кнопки
-				switch (myPreferences["scope"]) {
+				switch (myPreferences[kPrefsScope]) {
 					case myAllDocsCode:
 						// Все открытые документы
 						myScopeItemsGroup.enabled = true;
 						for (var doc in myDocuments) {
-							var newListItem = myItemsList.add("item", myDocuments[doc][keyDocumentsName]);
-							newListItem[keyListItemDocument] = doc;
-							if (myDocuments[doc][keyDocumentsLinksBad] == 0) {
+							var newListItem = myItemsList.add("item", myDocuments[doc][kDocumentsName]);
+							newListItem[kListItemDocument] = doc;
+							if (myDocuments[doc][kDocumentsLinksBad] == 0) {
 								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 								myItemsList.selection = myItemsList.items.length - 1;
 							} else {
@@ -601,8 +685,8 @@ function displayPreferences() {
 					case myActiveDocCode:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
-						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsName]);
-						if (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0) {
+						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsName]);
+						if (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0) {
 							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 						} else {
 							newListItem.image = ScriptUI.newImage(myCircleRedFile);
@@ -610,10 +694,10 @@ function displayPreferences() {
 						break;
 					case mySelectedPagesCode:
 						// Выбранные страницы
-						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0);
-						for (var n = 0; n < myDocuments[myActiveDocument][keyDocumentsObject].pages.length; n++) {
-							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][keyDocumentsObject].pages[n].name, n);
-							newListItem[keyListItemDocument] = myDocuments[myActiveDocument][keyDocumentsObject].pages[n];
+						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0);
+						for (var n = 0; n < myDocuments[myActiveDocument][kDocumentsObject].pages.length; n++) {
+							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsObject].pages[n].name, n);
+							newListItem[kListItemDocument] = myDocuments[myActiveDocument][kDocumentsObject].pages[n];
 							myItemsList.selection = n;
 						}
 						break;
@@ -648,9 +732,9 @@ function displayPreferences() {
 		
 		var myIncludePasteboard = add("checkbox", undefined, "Обрабатывать картинки на полях");
 		myIncludePasteboard.onClick = function() {
-			myPreferences["includePasteboard"] = myIncludePasteboard.value;
+			myPreferences[kPrefsIncludePasteboard] = myIncludePasteboard.value;
 		}
-		myIncludePasteboard.value = myPreferences["includePasteboard"];
+		myIncludePasteboard.value = myPreferences[kPrefsIncludePasteboard];
 	}
 		
 	// Список элементов
@@ -662,12 +746,12 @@ function displayPreferences() {
 	}
 	
 	function listItemClicked(item) {
-		switch (myPreferences["scope"]) {
+		switch (myPreferences[kPrefsScope]) {
 			case myAllDocsCode:
 				var mySelectedCount = 0;
 				for (var i = 0; i < myItemsList.items.length; i++) {
 					if (myItemsList.items[i].selected) {
-						if (myDocuments[myItemsList.items[i][keyListItemDocument]][keyDocumentsLinksBad] != 0) {
+						if (myDocuments[myItemsList.items[i][kListItemDocument]][kDocumentsLinksBad] != 0) {
 							myItemsList.items[i].selected = false;
 						} else {
 							mySelectedCount++;
@@ -677,7 +761,7 @@ function displayPreferences() {
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
 			case myActiveDocCode:
-				myOKButton.enabled = (myDocuments[myActiveDocument][keyDocumentsLinksBad] == 0);
+				myOKButton.enabled = (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0);
 				break;
 			case mySelectedPagesCode:
 				var mySelectedCount = 0;
@@ -707,10 +791,10 @@ function displayPreferences() {
 		
 		var myDoBackup = add("checkbox", undefined, "Резервное копирование");
 		myDoBackup.onClick = function() {
-			myPreferences["backup"] = myDoBackup.value;
+			myPreferences[kPrefsBackup] = myDoBackup.value;
 			myBackupGroup.enabled = myDoBackup.value;
 		}
-		myDoBackup.value = myPreferences["backup"];
+		myDoBackup.value = myPreferences[kPrefsBackup];
 		
 		var myBackupGroup = add("group");
 		myBackupGroup.orientation = "row";
@@ -722,10 +806,10 @@ function displayPreferences() {
 			orientation = "row";
 			alignChildren = ["fill", "top"];
 			
-			var myBackupPath = add("edittext", undefined, Folder.decode(myPreferences["backupFolder"]));
+			var myBackupPath = add("edittext", undefined, Folder.decode(myPreferences[kPrefsBackupFolder]));
 			myBackupPath.preferredSize.width = mySubControlWidth;
 			myBackupPath.onChange = function() {
-				myPreferences["backupFolder"] = Folder.encode(myBackupPath.text);
+				myPreferences[kPrefsBackupFolder] = Folder.encode(myBackupPath.text);
 			}
 		}
 			
@@ -737,7 +821,7 @@ function displayPreferences() {
 			myBackupChooseButton.onClick = function() {
 				var mySelectedFolder = Folder.selectDialog();
 				if (mySelectedFolder != null) {
-					myPreferences["backupFolder"] = Folder.encode(mySelectedFolder.fullName) + "/";
+					myPreferences[kPrefsBackupFolder] = Folder.encode(mySelectedFolder.fullName) + "/";
 					myBackupPath.text = mySelectedFolder.fullName + "/";
 				}
 			}
@@ -756,8 +840,8 @@ function displayPreferences() {
 	myChangeFormat.onClick();
 	myClippedImagesToPSD.onClick();
 	myDoBackup.onClick();
-	myDownsample.onClick();
-	myUpsample.onClick();
+	//myDownsample.onClick();
+	//myUpsample.onClick();
 	myScopeRadioGroup.children[0].onClick();
 	
 	// Показать диалог
@@ -770,11 +854,11 @@ function displayPreferences() {
 	}
 	
 	// Сделать список обрабатываемого
-	switch (myPreferences["scope"]) {
+	switch (myPreferences[kPrefsScope]) {
 		case myAllDocsCode:
 			for (var i = 0; i < myItemsList.items.length; i++) {
 				if (!myItemsList.items[i].selected) {
-					delete myDocuments[myItemsList.items[i][keyListItemDocument]];
+					delete myDocuments[myItemsList.items[i][kListItemDocument]];
 				}
 			}
 			break;
@@ -787,7 +871,7 @@ function displayPreferences() {
 		case mySelectedPagesCode:
 			for (var i = 0; i < myItemsList.items.length; i++) {
 				if (myItemsList.items[i].selected) {
-					myPages.push(myItemsList.items[i][keyDocumentsObject]);
+					myPages.push(myItemsList.items[i][kListItemDocument]);
 				}
 			}
 			break;
@@ -853,20 +937,20 @@ function checkGraphics() {
 		var myGraphicPath = myGraphic.itemLink.filePath;
 		if (myGraphicPath in myGraphics) {
 			// Попадался
-			if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][keyGraphicsLowestDPI]) { myGraphics[myGraphicPath][keyGraphicsLowestDPI] = lowestDPI(myGraphic) }
-			if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][keyGraphicsHasClippingPath] = true }
-			if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][keyGraphicsWithinBleeds] = true }
-			myGraphics[myGraphicPath][keyGraphicsObjectList][myGraphic.id] = myGraphic;
+			if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][kGraphicsLowestDPI]) { myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic) }
+			if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][kGraphicsHasClippingPath] = true }
+			if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][kGraphicsWithinBleeds] = true }
+			myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
 		} else {
 			// Не попадался, добавим первое вхождение
 			myGraphics[myGraphicPath] = {};
-			myGraphics[myGraphicPath][keyGraphicsName] = myGraphic.itemLink.name;
-			myGraphics[myGraphicPath][keyGraphicsWrongFormat] = wrongGraphicFormat(myGraphic);
-			myGraphics[myGraphicPath][keyGraphicsLowestDPI] = lowestDPI(myGraphic);
-			myGraphics[myGraphicPath][keyGraphicsHasClippingPath] = hasClippingPath(myGraphic);
-			myGraphics[myGraphicPath][keyGraphicsWithinBleeds] = withinBleeds(myGraphic);
-			myGraphics[myGraphicPath][keyGraphicsObjectList] = {};
-			myGraphics[myGraphicPath][keyGraphicsObjectList][myGraphic.id] = myGraphic;
+			myGraphics[myGraphicPath][kGraphicsName] = myGraphic.itemLink.name;
+			myGraphics[myGraphicPath][kGraphicsWrongFormat] = wrongGraphicFormat(myGraphic);
+			myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
+			myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
+			myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
+			myGraphics[myGraphicPath][kGraphicsObjectList] = {};
+			myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
 		}
 		
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -882,24 +966,25 @@ function checkGraphics() {
 	
 	showStatus("ПРОВЕРКА КАРТИНОК", "", 0, 0);
 	
-	switch (myPreferences["scope"]) {
+	switch (myPreferences[kPrefsScope]) {
 		case myAllDocsCode:
 			var totalImages = 0;
 			for (var doc in myDocuments) {
-				totalImages += myDocuments[doc][keyDocumentsObject].allGraphics.length;
+				totalImages += myDocuments[doc][kDocumentsObject].allGraphics.length;
 			}
 			showStatus(undefined, undefined, 0, totalImages);
 			
 			for (var doc in myDocuments) {
-				checkDocumentImages(myDocuments[doc][keyDocumentsObject]);
+				checkDocumentImages(myDocuments[doc][kDocumentsObject]);
 			}
 			break;
 		case myActiveDocCode:
-			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][keyDocumentsObject].allGraphics.length);
-			checkDocumentImages(myDocuments[myActiveDocument][keyDocumentsObject]);
+			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][kDocumentsObject].allGraphics.length);
+			checkDocumentImages(myDocuments[myActiveDocument][kDocumentsObject]);
 			break;
 		case mySelectedPagesCode:
 			var totalImages = 0;
+			debugPrintObject(myPages);
 			for (var i = 0; i < myPages.length; i++) {
 				totalImages += myPages[i].allGraphics.length;
 			}
@@ -927,21 +1012,21 @@ function checkGraphics() {
 	for (var grc in myGraphics) {
 		var myDoProcess = false;
 		
-		if ((myPreferences["changeFormat"]) && (myGraphics[grc][keyGraphicsWrongFormat])) { myDoProcess = true }
-		if ((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) { myDoProcess = true }
-		if ((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) { myDoProcess = true }
-		if ((!myPreferences["includePasteboard"]) && (!myGraphics[grc][keyGraphicsWithinBleeds])) { myDoProcess = false }
+		if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsWrongFormat])) { myDoProcess = true }
+		if ((myPreferences[kPrefsColorUpsample]) && (lowGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((myPreferences[kPrefsColorDownsample]) && (highGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((!myPreferences[kPrefsIncludePasteboard]) && (!myGraphics[grc][kGraphicsWithinBleeds])) { myDoProcess = false }
 		
 		// Обрабатываем?
 		if (myDoProcess) {
 			// Добавим все вхождения картинки в подокументный список для бэкапа
-			for (var itm in myGraphics[grc][keyGraphicsObjectList]) {
+			for (var itm in myGraphics[grc][kGraphicsObjectList]) {
 				// получим документ этого вхождения
-				var myDocument = documentOfGraphic(myGraphics[grc][keyGraphicsObjectList][itm]);
+				var myDocument = documentOfGraphic(myGraphics[grc][kGraphicsObjectList][itm]);
 				
 				// картинки ещё нет в списке бэкапа?
-				var myItemLink = myGraphics[grc][keyGraphicsObjectList][itm].itemLink;
-				var myBackupList = myDocuments[myDocument.fullName][keyDocumentsBackupList];
+				var myItemLink = myGraphics[grc][kGraphicsObjectList][itm].itemLink;
+				var myBackupList = myDocuments[myDocument.fullName][kDocumentsBackupList];
 				if (!(myItemLink.filePath in myBackupList)) {
 					myBackupList[myItemLink.filePath] = myItemLink;
 				}
@@ -959,7 +1044,7 @@ function checkGraphics() {
 	
 	// Убрать из списка документы без картинок под обработку
 	for (var doc in myDocuments) {
-		if (arrayLength(myDocuments[doc][keyDocumentsBackupList]) == 0) { delete myDocuments[doc] }
+		if (arrayLength(myDocuments[doc][kDocumentsBackupList]) == 0) { delete myDocuments[doc] }
 	}
 	
 	return true;
@@ -969,19 +1054,19 @@ function checkGraphics() {
 // ------------------------------------------------------
 function backupImages() {
 	// Надо?
-	if (!myPreferences["backup"])
+	if (!myPreferences[kPrefsBackup])
 		return true;
 	
 	// Функция бэкапа документа со всеми картинками
 	function backupDocument(myItemObject) {
-		var myDocument = myItemObject[keyDocumentsObject];
+		var myDocument = myItemObject[kDocumentsObject];
 		
 		showStatus(undefined, myDocument.name, undefined, undefined);
 		
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
 		var myBackupFolderName = myDocument.name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
-		var myBackupFolder = new Folder(Folder.decode(myPreferences["backupFolder"]) + myBackupFolderName);
+		var myBackupFolder = new Folder(Folder.decode(myPreferences[kPrefsBackupFolder]) + myBackupFolderName);
 		if (!myBackupFolder.create()) {
 			alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
 			myFlagStopExecution = true;
@@ -996,7 +1081,7 @@ function backupImages() {
 		}
 		
 		// Скопируем оригиналы картинок
-		var myBackupList = myItemObject[keyDocumentsBackupList];
+		var myBackupList = myItemObject[kDocumentsBackupList];
 		for (var grc in myBackupList) {
 			showStatus(undefined, myBackupList[grc].name, myStatusWindowGauge.value + 1, undefined);
 			showStatus(undefined,undefined, undefined, undefined);
@@ -1018,7 +1103,7 @@ function backupImages() {
 	var backupFilesCount = 0;
 	for (var doc in myDocuments) {
 		backupFilesCount++;
-		backupFilesCount += arrayLength(myDocuments[doc][keyDocumentsBackupList]);
+		backupFilesCount += arrayLength(myDocuments[doc][kDocumentsBackupList]);
 	}
 	
 	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", "", 0, backupFilesCount);
@@ -1052,7 +1137,6 @@ function processImages() {
 			
 			// Разрешение
 			if (myDoResample) {
-				alert(myTargetDPIFactor);
 				myDocument.resizeImage(undefined, undefined, myDocument.resolution * myTargetDPIFactor, ResampleMethod.BICUBIC);
 				myDocument.resizeImage(undefined, undefined, myTargetDPI, ResampleMethod.NONE);
 			}
@@ -1094,24 +1178,24 @@ function processImages() {
 	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", "", 0, arrayLength(myGraphics));
 	
 	for (var grc in myGraphics) {
-		showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
+		showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = ((myPreferences["changeFormat"]) && (myGraphics[grc][keyGraphicsWrongFormat]));
-		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][keyGraphicsHasClippingPath] ? 2 : 1) : 0);
+		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsWrongFormat]));
+		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1) : 0);
 		var myDoResample = (
-			((myPreferences["upsample"]) && (lowGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))) ||
-			((myPreferences["downsample"]) && (highGraphicDPI(myGraphics[grc][keyGraphicsLowestDPI]))));
-		var myTargetDPIFactor = myPreferences["targetDPI"] / myGraphics[grc][keyGraphicsLowestDPI];
+			((myPreferences[kPrefsColorUpsample]) && (lowGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) ||
+			((myPreferences[kPrefsColorDownsample]) && (highGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))));
+		var myTargetDPIFactor = myPreferences[kPrefsColorTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
 		
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
 			var myFile = new File(grc);
 			myNewFilePath = uniqueFileName(myFile.path, myFile.name.slice(0, myFile.name.lastIndexOf(".") + 1) + (myChangeFormatCode == 1 ? "tif" : "psd"));
-			myGraphics[grc][keyGraphicsNewFilePath] = myNewFilePath;
-			myGraphics[grc][keyGraphicsDoRelink] = true;
+			myGraphics[grc][kGraphicsNewFilePath] = myNewFilePath;
+			myGraphics[grc][kGraphicsDoRelink] = true;
 		} else {
-			myGraphics[grc][keyGraphicsDoRelink] = false;
+			myGraphics[grc][kGraphicsDoRelink] = false;
 		}
 		
 		// Запускаем скрипт в фотошопе
@@ -1155,7 +1239,7 @@ function processImages() {
 			myBT.body += grc + "\", \"";
 			myBT.body += myNewFilePath + "\", ";
 			myBT.body += myDoResample + ", ";
-			myBT.body += myPreferences["targetDPI"] + ", ";
+			myBT.body += myPreferences[kPrefsColorTargetDPI] + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
@@ -1230,7 +1314,7 @@ function relinkImages(myGraphic) {
 	// посчитать линки
 	var myTotalLinks = 0;
 	for (var grc in myGraphics) {
-		myTotalLinks += arrayLength(myGraphics[grc][keyGraphicsObjectList]);
+		myTotalLinks += arrayLength(myGraphics[grc][kGraphicsObjectList]);
 	}
 	
 	showStatus("ПЕРЕЛИНКОВКА ИЗОБРАЖЕНИЙ", "", 0, myTotalLinks);
@@ -1238,9 +1322,9 @@ function relinkImages(myGraphic) {
 	// Пройдёмся по всем картинкам
 	for (var grc in myGraphics) {
 		// Пройдёмся по всем вхождениям
-		var myGraphicsList = myGraphics[grc][keyGraphicsObjectList];
+		var myGraphicsList = myGraphics[grc][kGraphicsObjectList];
 		for (var lnk in myGraphicsList) {
-			showStatus(undefined, myGraphics[grc][keyGraphicsName], undefined, undefined);
+			showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
 			
 			// Найдём линк в общедокументном списке линков
 			var myDocument = documentOfGraphic(myGraphicsList[lnk]);
@@ -1252,8 +1336,8 @@ function relinkImages(myGraphic) {
 			}
 			
 			// Это релинк?
-			if (myGraphics[grc][keyGraphicsDoRelink]) {
-				myLink.relink(myGraphics[grc][keyGraphicsNewFilePath]);
+			if (myGraphics[grc][kGraphicsDoRelink]) {
+				myLink.relink(myGraphics[grc][kGraphicsNewFilePath]);
 			}
 			
 			// Обновляем
@@ -1267,7 +1351,7 @@ function relinkImages(myGraphic) {
 		}
 		
 		// Удалить исходник?
-		if ((myPreferences["deleteOriginals"]) && (myGraphics[grc][keyGraphicsDoRelink])) {
+		if ((myPreferences[kPrefsDeleteOriginals]) && (myGraphics[grc][kGraphicsDoRelink])) {
 			var myOriginalFile = new File(grc);
 			myOriginalFile.remove();
 		}
@@ -1285,15 +1369,15 @@ function saveDocuments() {
 	showStatus("СОХРАНЕНИЕ ДОКУМЕНТОВ", "", 0, arrayLength(myDocuments));
 	
 	for (var doc in myDocuments) {
-		showStatus(undefined, myDocuments[doc][keyDocumentsObject].name, undefined, undefined);
+		showStatus(undefined, myDocuments[doc][kDocumentsObject].name, undefined, undefined);
 		
-		myDocuments[doc][keyDocumentsObject].save();
+		myDocuments[doc][kDocumentsObject].save();
 		
 		/*
-		var myDocument = myDocuments[doc][keyDocumentsObject];
+		var myDocument = myDocuments[doc][kDocumentsObject];
 		var myCheck = false;
-		var mySaved = myDocuments[doc][keyDocumentsObject].saved;
-		debugPrintObject(myDocuments[doc][keyDocumentsObject].saved);
+		var mySaved = myDocuments[doc][kDocumentsObject].saved;
+		debugPrintObject(myDocuments[doc][kDocumentsObject].saved);
 		debugPrintObject(mySaved);
 		debugPrintObject(myCheck);
 		$.writeln("-----------------");
@@ -1303,7 +1387,7 @@ function saveDocuments() {
 		$.writeln("-----------------");
 		
 		if (!mySaved) {
-			myDocuments[doc][keyDocumentsObject].save();
+			myDocuments[doc][kDocumentsObject].save();
 			$.writeln("SAVED----------------------------------------------------------");
 		}
 		*/
@@ -1409,13 +1493,13 @@ function wrongGraphicFormat(myGraphic) {
 // Проверка картинки на низкое dpi
 // ------------------------------------------------------
 function lowGraphicDPI(myGraphicDPI) {
-	return (myGraphicDPI <= myPreferences["upsampleThreshold"]);
+	return (myGraphicDPI <= (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
 }
 
 // Проверка картинки на высокое dpi
 // ------------------------------------------------------
 function highGraphicDPI(myGraphicDPI) {
-	return (myGraphicDPI >= myPreferences["downsampleThreshold"]);
+	return (myGraphicDPI >= (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
 }
 
 // Получить самый низкий effective dpi
@@ -1423,7 +1507,6 @@ function highGraphicDPI(myGraphicDPI) {
 function lowestDPI(myGraphic) {
 	var myHorizontalDPI = (myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale;
 	var myVerticalDPI = (myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale;
-	$.writeln(myHorizontalDPI);
 	return (myHorizontalDPI < myVerticalDPI ? myVerticalDPI : myVerticalDPI);
 }
 
