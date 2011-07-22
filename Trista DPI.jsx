@@ -984,7 +984,6 @@ function checkGraphics() {
 			break;
 		case mySelectedPagesCode:
 			var totalImages = 0;
-			debugPrintObject(myPages);
 			for (var i = 0; i < myPages.length; i++) {
 				totalImages += myPages[i].allGraphics.length;
 			}
@@ -1341,9 +1340,8 @@ function relinkImages(myGraphic) {
 			}
 			
 			// Обновляем
-			if (myLink.status == LinkStatus.LINK_OUT_OF_DATE) {
-				myLink.update();
-			}
+			myLink.status;
+			myLink.update();
 			
 			if (myFlagStopExecution) { break }
 			
@@ -1373,24 +1371,6 @@ function saveDocuments() {
 		
 		myDocuments[doc][kDocumentsObject].save();
 		
-		/*
-		var myDocument = myDocuments[doc][kDocumentsObject];
-		var myCheck = false;
-		var mySaved = myDocuments[doc][kDocumentsObject].saved;
-		debugPrintObject(myDocuments[doc][kDocumentsObject].saved);
-		debugPrintObject(mySaved);
-		debugPrintObject(myCheck);
-		$.writeln("-----------------");
-		$.writeln("myDocum " + myDocument.saved);
-		$.writeln("mySaved " + mySaved);
-		$.writeln("myCheck " + myCheck);
-		$.writeln("-----------------");
-		
-		if (!mySaved) {
-			myDocuments[doc][kDocumentsObject].save();
-			$.writeln("SAVED----------------------------------------------------------");
-		}
-		*/
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
 	}
 	
