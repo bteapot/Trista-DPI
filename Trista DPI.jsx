@@ -59,6 +59,7 @@ var myScopeOptions = [
 	[mySelectedPagesCode, "Выбранные страницы"],
 	[mySelectedImagesCode, "Выбранные изображения"]];
 
+var myAppSettingsPreserveBounds;
 
 
 main();
@@ -66,6 +67,14 @@ main();
 // "Стартую!" (эпитафия на могиле Неизвестной Секретарши)
 // ------------------------------------------------------
 function main() {
+	preserveSettings();
+	process();
+	restoreSettings();
+}
+
+// Главный производственный процесс
+// ------------------------------------------------------
+function process() {
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
 	if (!checkDocuments()) return;
@@ -75,6 +84,20 @@ function main() {
 	if (!processImages()) return;
 	if (!relinkImages()) return;
 	if (!saveDocuments()) return;
+}
+
+// Сохраним текущие настройки индизайна
+// ------------------------------------------------------
+function preserveSettings() {
+	myAppSettingsPreserveBounds = app.imagePreferences.preserveBounds;
+	
+	app.imagePreferences.preserveBounds = true;
+}
+
+// Восстановим настройки индизайна
+// ------------------------------------------------------
+function restoreSettings() {
+	app.imagePreferences.preserveBounds = myAppSettingsPreserveBounds;
 }
 
 // Стартовые настройки
@@ -1017,7 +1040,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPIFactor, myChangeFormatCode) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1029,7 +1052,9 @@ function processImages() {
 			
 			// Разрешение
 			if (myDoResample) {
+				alert(myTargetDPIFactor);
 				myDocument.resizeImage(undefined, undefined, myDocument.resolution * myTargetDPIFactor, ResampleMethod.BICUBIC);
+				myDocument.resizeImage(undefined, undefined, myTargetDPI, ResampleMethod.NONE);
 			}
 			
 			// Формат
@@ -1130,6 +1155,7 @@ function processImages() {
 			myBT.body += grc + "\", \"";
 			myBT.body += myNewFilePath + "\", ";
 			myBT.body += myDoResample + ", ";
+			myBT.body += myPreferences["targetDPI"] + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
@@ -1395,7 +1421,10 @@ function highGraphicDPI(myGraphicDPI) {
 // Получить самый низкий effective dpi
 // ------------------------------------------------------
 function lowestDPI(myGraphic) {
-	return (myGraphic.effectivePpi[0] < myGraphic.effectivePpi[1] ? myGraphic.effectivePpi[0] : myGraphic.effectivePpi[1]);
+	var myHorizontalDPI = (myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale;
+	var myVerticalDPI = (myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale;
+	$.writeln(myHorizontalDPI);
+	return (myHorizontalDPI < myVerticalDPI ? myVerticalDPI : myVerticalDPI);
 }
 
 // Проверка картинки на clipping
