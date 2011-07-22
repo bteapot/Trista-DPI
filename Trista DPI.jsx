@@ -168,12 +168,16 @@ function initialSettings() {
 			
 			for (i = 0; i < myPreferencesArray.length; i++) {
 				myPreferenceRecord = myPreferencesArray[i].split("\t");
-				if (myPreferenceRecord[1] == "boolean") {
-					myPreferences[myPreferenceRecord[0]] = (myPreferenceRecord[2] == "true");
-				} else if (myPreferenceRecord[1] == "number") {
-					myPreferences[myPreferenceRecord[0]] = Number(myPreferenceRecord[2]);
-				} else {
-					myPreferences[myPreferenceRecord[0]] = myPreferenceRecord[2];
+				
+				// Грузим только известные науке настройки, чтобы не захламлять файл с преференсами
+				if (myPreferences.hasOwnProperty(myPreferenceRecord[0])) {
+					if (myPreferenceRecord[1] == "boolean") {
+						myPreferences[myPreferenceRecord[0]] = (myPreferenceRecord[2] == "true");
+					} else if (myPreferenceRecord[1] == "number") {
+						myPreferences[myPreferenceRecord[0]] = Number(myPreferenceRecord[2]);
+					} else {
+						myPreferences[myPreferenceRecord[0]] = myPreferenceRecord[2];
+					}
 				}
 			}
 			
