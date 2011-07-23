@@ -707,7 +707,30 @@ function displayPreferences() {
 						break;
 					case mySelectedImagesCode:
 						// Выбранные изображения
-						myScopeItemsGroup.enabled = true;
+						myScopeItemsGroup.enabled = false;
+						
+						function parseSelectedBranch(mySelection) {
+							if (mySelection.hasOwnProperty("allGraphics")) {
+								for (var i = 0; i < mySelection.allGraphics.length; i++) {
+									$.writeln("bingo: " + mySelection.allGraphics[i].itemLink.name);
+									var newListItem = myItemsList.add("item", mySelection.allGraphics[i].itemLink.name);
+									// это ещё не все проверки, доделать
+									if (mySelection.allGraphics[i].itemLink.status == LinkStatus.NORMAL) {
+										newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+									} else {
+										newListItem.image = ScriptUI.newImage(myCircleRedFile);
+									}
+								}
+							}
+							
+							if (mySelection.hasOwnProperty("length")) {
+								for (var i = 0; i < mySelection.length; i++) {
+									parseSelectedBranch(mySelection[i]);
+								}
+							}
+						}
+						
+						parseSelectedBranch(myDocuments[myActiveDocument][kDocumentsObject].selection);
 						break;
 				}
 				myItemsList.onClick();
@@ -723,8 +746,7 @@ function displayPreferences() {
 			myButton.enabled = (arrayLength(myDocuments) > 1);
 		}
 		if (i == mySelectedImagesCode) {
-			// заглушка
-			myButton.enabled = false;
+			myButton.enabled = (myDocuments[myActiveDocument][kDocumentsObject].selection.length > 0)
 		}
 	}
 	
@@ -777,7 +799,7 @@ function displayPreferences() {
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
 			case mySelectedImagesCode:
-				myOKButton.enabled = true;
+				//myOKButton.enabled = true;
 				break;
 		}
 	}
