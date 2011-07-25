@@ -1,4 +1,4 @@
-﻿//
+//
 // Обработка картинок
 //
 // v1.0
@@ -942,6 +942,7 @@ function checkGraphics() {
 		// Линк в порядке (не embedded, не missing)?
 		try {
 			var myGraphicIsOK = true;
+			if (myGraphic.itemLink == undefined) myGraphicIsOK = false;
 			if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
 			if (myAppVersion >= 6) {
 				if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
@@ -1511,8 +1512,8 @@ function highGraphicDPI(myGraphicDPI) {
 // Получить самый низкий effective dpi
 // ------------------------------------------------------
 function lowestDPI(myGraphic) {
-	var myHorizontalDPI = (myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale;
-	var myVerticalDPI = (myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale;
+	var myHorizontalDPI = Math.abs((myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale);
+	var myVerticalDPI = Math.abs((myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale);
 	return (myHorizontalDPI < myVerticalDPI ? myVerticalDPI : myVerticalDPI);
 }
 
