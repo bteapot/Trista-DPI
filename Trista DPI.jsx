@@ -1,4 +1,4 @@
-//
+﻿//
 // Обработка картинок
 //
 // v1.0
@@ -56,7 +56,7 @@ const kDocumentsBackupList = "documentsBackupList";
 const kGraphicsName = "graphicsName";
 const kGraphicsNewFilePath = "graphicsNewFilePath";
 const kGraphicsDoRelink = "graphicsDoRelink";
-const kGraphicsWrongFormat = "graphicsWrongFormat";
+const kGraphicsChangeFormat = "graphicsChangeFormat";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
@@ -712,13 +712,13 @@ function displayPreferences() {
 						function parseSelectedBranch(mySelection) {
 							if (mySelection.hasOwnProperty("allGraphics")) {
 								for (var i = 0; i < mySelection.allGraphics.length; i++) {
-									$.writeln("bingo: " + mySelection.allGraphics[i].itemLink.name);
-									var newListItem = myItemsList.add("item", mySelection.allGraphics[i].itemLink.name);
-									// это ещё не все проверки, доделать
-									if (mySelection.allGraphics[i].itemLink.status == LinkStatus.NORMAL) {
-										newListItem.image = ScriptUI.newImage(myCircleGreenFile);
-									} else {
-										newListItem.image = ScriptUI.newImage(myCircleRedFile);
+									if (isGraphicProcessable(mySelection.allGraphics[i])) {
+										
+										// заглушка для вставленных картинок
+										if (!isGraphicPasted(mySelection.allGraphics[i])) {
+											var newListItem = myItemsList.add("item", mySelection.allGraphics[i].itemLink.name);
+											newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+										}
 									}
 								}
 							}
@@ -866,8 +866,6 @@ function displayPreferences() {
 	myChangeFormat.onClick();
 	myClippedImagesToPSD.onClick();
 	myDoBackup.onClick();
-	//myDownsample.onClick();
-	//myUpsample.onClick();
 	myScopeRadioGroup.children[0].onClick();
 	
 	// Показать диалог
@@ -939,24 +937,20 @@ function checkGraphics() {
 			showStatus(undefined, "<внедрённая картинка>", undefined, undefined);
 		}
 		
-		// Линк в порядке (не embedded, не missing)?
-		try {
-			var myGraphicIsOK = true;
-			if (myGraphic.itemLink == undefined) myGraphicIsOK = false;
-			if (!myGraphic.hasOwnProperty("itemLink")) myGraphicIsOK = false;
-			if (myAppVersion >= 6) {
-				if (!(myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "TIFF":0, "Photoshop":0})) myGraphicIsOK = false;
-			} else {
-				if (!myGraphic.hasOwnProperty("effectivePpi")) myGraphicIsOK = false;
-			}
-			//if () myGraphicIsOK = false;
-		} catch (e) {
-			myGraphicIsOK = false;
+		// Это растровая графика?
+		if (!isGraphicProcessable(myGraphic)) {
+			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+			return;
 		}
 		
-		// Не впорядке
-		if (!myGraphicIsOK) {
+		// Заглушка -- Линк не скопипастченный?
+		if (isGraphicPasted(myGraphic)) {
 			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+			return;
+		}
+		
+		// Заглушка -- Линк не внедрённый?
+		if (isGraphicEmbedded(myGraphic)) {
 			return;
 		}
 		
@@ -972,7 +966,7 @@ function checkGraphics() {
 			// Не попадался, добавим первое вхождение
 			myGraphics[myGraphicPath] = {};
 			myGraphics[myGraphicPath][kGraphicsName] = myGraphic.itemLink.name;
-			myGraphics[myGraphicPath][kGraphicsWrongFormat] = wrongGraphicFormat(myGraphic);
+			myGraphics[myGraphicPath][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
 			myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
 			myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
 			myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
@@ -1038,9 +1032,9 @@ function checkGraphics() {
 	for (var grc in myGraphics) {
 		var myDoProcess = false;
 		
-		if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsWrongFormat])) { myDoProcess = true }
-		if ((myPreferences[kPrefsColorUpsample]) && (lowGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-		if ((myPreferences[kPrefsColorDownsample]) && (highGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat])) { myDoProcess = true }
+		if ((myPreferences[kPrefsColorUpsample]) && (isGraphicDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+		if ((myPreferences[kPrefsColorDownsample]) && (isGraphicDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
 		if ((!myPreferences[kPrefsIncludePasteboard]) && (!myGraphics[grc][kGraphicsWithinBleeds])) { myDoProcess = false }
 		
 		// Обрабатываем?
@@ -1207,11 +1201,11 @@ function processImages() {
 		showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsWrongFormat]));
+		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat]));
 		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1) : 0);
 		var myDoResample = (
-			((myPreferences[kPrefsColorUpsample]) && (lowGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))) ||
-			((myPreferences[kPrefsColorDownsample]) && (highGraphicDPI(myGraphics[grc][kGraphicsLowestDPI]))));
+			((myPreferences[kPrefsColorUpsample]) && (isGraphicDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
+			((myPreferences[kPrefsColorDownsample]) && (isGraphicDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
 		var myTargetDPIFactor = myPreferences[kPrefsColorTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
 		
 		var myNewFilePath = "";
@@ -1472,20 +1466,27 @@ function withinBleeds(myGraphic) {
 	return !myOffBleeds;
 }
 
-// Получить документ картинки
+// Проверка картинки на скопипастченность
 // ------------------------------------------------------
-function documentOfGraphic(myGraphic) {
-	var myParentDocument = myGraphic.parent;
-	while (myParentDocument.reflect.name != "Document") {
-		myParentDocument = myParentDocument.parent;
-	}
-	
-	return myParentDocument;
+function isGraphicPasted(myGraphic) {
+	return (myGraphic.itemLink == undefined);
 }
 
-// Проверка картинки на кривость формата файла
+// Проверка картинки на внедрённость
 // ------------------------------------------------------
-function wrongGraphicFormat(myGraphic) {
+function isGraphicEmbedded(myGraphic) {
+	return ((!isGraphicPasted(myGraphic)) && (myGraphic.itemLink.status == LinkStatus.LINK_EMBEDDED));
+}
+
+// Проверка картинки на растровую графику
+// ------------------------------------------------------
+function isGraphicProcessable(myGraphic) {
+	return (myGraphic.reflect.name == "Image");
+}
+
+// Проверка картинки на формат, подпадающий под обработку
+// ------------------------------------------------------
+function isGraphicChangeFormat(myGraphic) {
 	try {
 		if (myAppVersion >= 6) {
 			return (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0});
@@ -1499,13 +1500,13 @@ function wrongGraphicFormat(myGraphic) {
 
 // Проверка картинки на низкое dpi
 // ------------------------------------------------------
-function lowGraphicDPI(myGraphicDPI) {
+function isGraphicDPILow(myGraphicDPI) {
 	return (myGraphicDPI <= (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
 }
 
 // Проверка картинки на высокое dpi
 // ------------------------------------------------------
-function highGraphicDPI(myGraphicDPI) {
+function isGraphicDPIHigh(myGraphicDPI) {
 	return (myGraphicDPI >= (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
 }
 
@@ -1521,6 +1522,17 @@ function lowestDPI(myGraphic) {
 // ------------------------------------------------------
 function hasClippingPath(myGraphic) {
 	return (myGraphic.clippingPath.clippingType != ClippingPathType.NONE);
+}
+
+// Получить документ картинки
+// ------------------------------------------------------
+function documentOfGraphic(myGraphic) {
+	var myParentDocument = myGraphic.parent;
+	while (myParentDocument.reflect.name != "Document") {
+		myParentDocument = myParentDocument.parent;
+	}
+	
+	return myParentDocument;
 }
 
 // Размер dictionary
