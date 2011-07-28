@@ -1360,6 +1360,11 @@ function relinkImages(myGraphic) {
 		for (var lnk in myGraphicsList) {
 			showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
 			
+			// Убить clipping?
+			if ((myPreferences[kPrefsRemoveClipping]) && (myGraphicsList[lnk].clippingPath.clippingType != ClippingPathType.NONE)) {
+				myGraphicsList[lnk].clippingPath.clippingType = ClippingPathType.NONE;
+			}
+			
 			// Найдём линк в общедокументном списке линков
 			var myDocument = documentOfGraphic(myGraphicsList[lnk]);
 			var myLink;
