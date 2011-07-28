@@ -27,6 +27,7 @@ var myHeaderColor = [0.1, 0.1, 0.1];
 
 var myDocuments = {};
 var myPages = [];
+var mySelection = [];
 var myGraphics = {};
 var myActiveDocument;
 
@@ -709,23 +710,24 @@ function displayPreferences() {
 						// Выбранные изображения
 						myScopeItemsGroup.enabled = false;
 						
-						function parseSelectedBranch(mySelection) {
-							if (mySelection.hasOwnProperty("allGraphics")) {
-								for (var i = 0; i < mySelection.allGraphics.length; i++) {
-									if (isGraphicProcessable(mySelection.allGraphics[i])) {
+						function parseSelectedBranch(mySelectedObject) {
+							if (mySelectedObject.hasOwnProperty("allGraphics")) {
+								for (var i = 0; i < mySelectedObject.allGraphics.length; i++) {
+									if (isGraphicProcessable(mySelectedObject.allGraphics[i])) {
 										
 										// заглушка для вставленных картинок
-										if (!isGraphicPasted(mySelection.allGraphics[i])) {
-											var newListItem = myItemsList.add("item", mySelection.allGraphics[i].itemLink.name);
+										if (!isGraphicPasted(mySelectedObject.allGraphics[i])) {
+											var newListItem = myItemsList.add("item", mySelectedObject.allGraphics[i].itemLink.name);
+											newListItem[kListItemDocument] = mySelectedObject.allGraphics[i];
 											newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 										}
 									}
 								}
 							}
 							
-							if (mySelection.hasOwnProperty("length")) {
-								for (var i = 0; i < mySelection.length; i++) {
-									parseSelectedBranch(mySelection[i]);
+							if (mySelectedObject.hasOwnProperty("length")) {
+								for (var i = 0; i < mySelectedObject.length; i++) {
+									parseSelectedBranch(mySelectedObject[i]);
 								}
 							}
 						}
@@ -900,6 +902,9 @@ function displayPreferences() {
 			}
 			break;
 		case mySelectedImagesCode:
+			for (var i = 0; i < myItemsList.items.length; i++) {
+				mySelection.push(myItemsList.items[i][kListItemDocument]);
+			}
 			break;
 		default:
 			return false;
@@ -1018,6 +1023,12 @@ function checkGraphics() {
 			}
 			break;
 		case mySelectedImagesCode:
+			showStatus(undefined, undefined, 0, mySelection.length);
+			
+			for (var i = 0; i < mySelection.length; i++) {
+				checkGraphic(mySelection[i]);
+				if (myFlagStopExecution) { return false }
+			}
 			break;
 		default:
 			return false;
@@ -1149,6 +1160,9 @@ function processImages() {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
+		myFilePath = File.decode(myFilePath);
+		myNewFilePath = File.decode(myNewFilePath);
+		
 		try {
 			var myFileRef = new File(myFilePath);
 			var myDocument = app.open(myFileRef);
@@ -1256,8 +1270,8 @@ function processImages() {
 			var myBT = new BridgeTalk;
 			myBT.target = myPhotoshop;
 			myBT.body = bridgeFunction.toString() + "\r\rbridgeFunction(\"";
-			myBT.body += grc + "\", \"";
-			myBT.body += myNewFilePath + "\", ";
+			myBT.body += File.encode(grc) + "\", \"";
+			myBT.body += File.encode(myNewFilePath) + "\", ";
 			myBT.body += myDoResample + ", ";
 			myBT.body += myPreferences[kPrefsColorTargetDPI] + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
