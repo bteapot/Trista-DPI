@@ -4,17 +4,17 @@ Trista DPI
 Languages
 ---------
 
-* [Русский](#rus)
-* [English](#eng)
+* <a href="#readme_anchor_rus">Русский</a>
+* <a href="#readme_anchor_eng">English</a>
 
-Русский {#rus}
+<a name="#readme_anchor_rus">Русский</a>
 
 Назначение
 ----------
 
 Пакетная обработка растровых изображений в публикации Adobe InDesign.
 
-English {#eng}
+<a name="#readme_anchor_eng">English</a>
 
 Purpose
 -------
