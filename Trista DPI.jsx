@@ -31,6 +31,7 @@ var mySelection = [];
 var myGraphics = {};
 var myActiveDocument;
 
+const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsChangeFormat = "changeFormat";
 const kPrefsClippedImagesToPSD = "clippedImagesToPSD";
 const kPrefsRemoveClipping = "removeClipping";
@@ -58,6 +59,7 @@ const kGraphicsName = "graphicsName";
 const kGraphicsNewFilePath = "graphicsNewFilePath";
 const kGraphicsDoRelink = "graphicsDoRelink";
 const kGraphicsChangeFormat = "graphicsChangeFormat";
+const kGraphicsBitmap = "graphicsBitmap";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
@@ -127,6 +129,8 @@ function initialSettings() {
 	myAppVersion = Number(app.version.match(/^\d+/));
 	
 	// Настройки по умолчанию
+	myPreferences[kPrefsProcessBitmaps] = false;
+	
 	myPreferences[kPrefsChangeFormat] = true;
 	myPreferences[kPrefsClippedImagesToPSD] = true;
 	myPreferences[kPrefsRemoveClipping] = true;
@@ -416,6 +420,22 @@ function displayPreferences() {
 	myParametersGroup.minimumSize.width = myPanelWidth;
 	myParametersGroup.alignChildren = ["fill", "top"];
 	
+	// Группа общих настроек
+	with (myParametersGroup.add("panel", undefined, "Общие параметры")) {
+		orientation = "column";
+		minimumSize.width = myPanelWidth;
+		alignChildren = ["fill", "top"];
+		margins = mySubPanelMargins;
+		
+		var myProcessBitmaps = add("checkbox", undefined, "Обрабатывать Bitmap");
+		myProcessBitmaps.onClick = function() {
+			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
+			myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
+		}
+		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
+		
+	}
+		
 	// Группа изменения формата
 	with (myParametersGroup.add("panel", undefined, "Формат файлов")) {
 		orientation = "column";
@@ -475,7 +495,8 @@ function displayPreferences() {
 		margins = mySubPanelMargins;
 		
 		// Цветные изображения
-		with (add("group")) {
+		var myColorAndGrayscaleGraphicsGroup = add("group");
+		with (myColorAndGrayscaleGraphicsGroup) {
 			orientation = "row";
 			alignChildren = ["right", "center"];
 			
@@ -558,7 +579,8 @@ function displayPreferences() {
 		}
 		
 		// Битмап изображения
-		with (add("group")) {
+		var myBitmapGraphicsGroup = add("group");
+		with (myBitmapGraphicsGroup) {
 			orientation = "row";
 			alignChildren = ["right", "center"];
 			
@@ -865,6 +887,7 @@ function displayPreferences() {
 	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
 	
 	// Отработать включение/выключение групп
+	myProcessBitmaps.onClick();
 	myChangeFormat.onClick();
 	myClippedImagesToPSD.onClick();
 	myDoBackup.onClick();
@@ -942,41 +965,42 @@ function checkGraphics() {
 			showStatus(undefined, "<внедрённая картинка>", undefined, undefined);
 		}
 		
+		var myDoProcess = true;
+		
 		// Это растровая графика?
-		if (!isGraphicProcessable(myGraphic)) {
-			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
-			return;
-		}
+		if (!isGraphicProcessable(myGraphic)) myDoProcess = false;
 		
 		// Заглушка -- Линк не скопипастченный?
-		if (isGraphicPasted(myGraphic)) {
-			showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
-			return;
-		}
+		if (isGraphicPasted(myGraphic)) myDoProcess = false;
 		
 		// Заглушка -- Линк не внедрённый?
-		if (isGraphicEmbedded(myGraphic)) {
-			return;
-		}
+		if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
 		
-		// Проверим, не попадался уже ли этот файл
-		var myGraphicPath = myGraphic.itemLink.filePath;
-		if (myGraphicPath in myGraphics) {
-			// Попадался
-			if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][kGraphicsLowestDPI]) { myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic) }
-			if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][kGraphicsHasClippingPath] = true }
-			if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][kGraphicsWithinBleeds] = true }
-			myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
-		} else {
-			// Не попадался, добавим первое вхождение
-			myGraphics[myGraphicPath] = {};
-			myGraphics[myGraphicPath][kGraphicsName] = myGraphic.itemLink.name;
-			myGraphics[myGraphicPath][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
-			myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
-			myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
-			myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
-			myGraphics[myGraphicPath][kGraphicsObjectList] = {};
-			myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
+		// Битмап?
+		if ((!myPreferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
+		
+		// Обрабатываем?
+		if (myDoProcess) {
+			// Проверим, не попадался уже ли этот файл
+			var myGraphicPath = myGraphic.itemLink.filePath;
+			if (myGraphicPath in myGraphics) {
+				// Попадался
+				if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][kGraphicsLowestDPI]) { myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic) }
+				if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][kGraphicsHasClippingPath] = true }
+				if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][kGraphicsWithinBleeds] = true }
+				myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
+			} else {
+				// Не попадался, добавим первое вхождение
+				myGraphics[myGraphicPath] = {};
+				myGraphics[myGraphicPath][kGraphicsName] = myGraphic.itemLink.name;
+				myGraphics[myGraphicPath][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsObjectList] = {};
+				myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
+			}
 		}
 		
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -1043,10 +1067,18 @@ function checkGraphics() {
 	for (var grc in myGraphics) {
 		var myDoProcess = false;
 		
-		if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat])) { myDoProcess = true }
-		if ((myPreferences[kPrefsColorUpsample]) && (isGraphicDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-		if ((myPreferences[kPrefsColorDownsample]) && (isGraphicDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-		if ((!myPreferences[kPrefsIncludePasteboard]) && (!myGraphics[grc][kGraphicsWithinBleeds])) { myDoProcess = false }
+		if ((myPreferences[kPrefsIncludePasteboard]) || (myGraphics[grc][kGraphicsWithinBleeds])) {
+			if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat])) { myDoProcess = true }
+			if (myGraphics[grc][kGraphicsBitmap]) {
+				if (myPreferences[kPrefsProcessBitmaps]) {
+					if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+					if ((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+				}
+			} else {
+				if ((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+				if ((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
+			}
+		}
 		
 		// Обрабатываем?
 		if (myDoProcess) {
@@ -1217,10 +1249,23 @@ function processImages() {
 		// Параметры скрипта для Фотошопа
 		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat]));
 		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1) : 0);
-		var myDoResample = (
-			((myPreferences[kPrefsColorUpsample]) && (isGraphicDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
-			((myPreferences[kPrefsColorDownsample]) && (isGraphicDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
-		var myTargetDPIFactor = myPreferences[kPrefsColorTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
+		
+		var myDoResample;
+		var myTargetDPI;
+		var myTargetDPIFactor;
+		if (myGraphics[grc][kGraphicsBitmap]) {
+			myDoResample = (
+				((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
+				((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
+			myTargetDPIFactor = myPreferences[kPrefsBitmapTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
+			myTargetDPI = myPreferences[kPrefsBitmapTargetDPI];
+		} else {
+			myDoResample = (
+				((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
+				((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
+			myTargetDPIFactor = myPreferences[kPrefsColorTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
+			myTargetDPI = myPreferences[kPrefsColorTargetDPI];
+		}
 		
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
@@ -1273,7 +1318,7 @@ function processImages() {
 			myBT.body += File.encode(grc) + "\", \"";
 			myBT.body += File.encode(myNewFilePath) + "\", ";
 			myBT.body += myDoResample + ", ";
-			myBT.body += myPreferences[kPrefsColorTargetDPI] + ", ";
+			myBT.body += myTargetDPI + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode;
 			myBT.body += ");";
@@ -1503,6 +1548,12 @@ function isGraphicProcessable(myGraphic) {
 	return (myGraphic.reflect.name == "Image");
 }
 
+// Проверка картинки на битмапность
+// ------------------------------------------------------
+function isGraphicBitmap(myGraphic) {
+	return (myGraphic.space == "Black and White");
+}
+
 // Проверка картинки на формат, подпадающий под обработку
 // ------------------------------------------------------
 function isGraphicChangeFormat(myGraphic) {
@@ -1517,16 +1568,28 @@ function isGraphicChangeFormat(myGraphic) {
 	}
 }
 
-// Проверка картинки на низкое dpi
+// Проверка цветной или серой картинки на низкое dpi
 // ------------------------------------------------------
-function isGraphicDPILow(myGraphicDPI) {
+function isGraphicColorDPILow(myGraphicDPI) {
 	return (myGraphicDPI <= (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
 }
 
-// Проверка картинки на высокое dpi
+// Проверка цветной или серой картинки на высокое dpi
 // ------------------------------------------------------
-function isGraphicDPIHigh(myGraphicDPI) {
+function isGraphicColorDPIHigh(myGraphicDPI) {
 	return (myGraphicDPI >= (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
+}
+
+// Проверка битмап-картинки на низкое dpi
+// ------------------------------------------------------
+function isGraphicBitmapDPILow(myGraphicDPI) {
+	return (myGraphicDPI <= (myPreferences[kPrefsBitmapTargetDPI] - myPreferences[kPrefsBitmapDelta]));
+}
+
+// Проверка битмап-картинки на высокое dpi
+// ------------------------------------------------------
+function isGraphicBitmapDPIHigh(myGraphicDPI) {
+	return (myGraphicDPI >= (myPreferences[kPrefsBitmapTargetDPI] + myPreferences[kPrefsBitmapDelta]));
 }
 
 // Получить самый низкий effective dpi
