@@ -22,7 +22,16 @@ Trista DPI *Русский*
 
 ### Разрешение
 
+Изображения Black and White (Bitmap) обрабатываются отдельно от Color и Grayscale. Настройки желаемого разрешения и дельты (минимального отличия разрешения от желаемого), соответственно, также задаются отдельно. По-умолчанию это 300 dpi для Color и Grayscale, и 1200 dpi для Bitmap.
+
 ### Области действия
+
+* *Все открытые документы* - в обработку идут все документы, открытые в InDesign.
+* *Активный документ* - в обработку идёт только активный документ.
+* *Выбранные страницы* - в обработку идут только выбранные страницы активного документа.
+* *Выбранные изображения* - в обработку идут только выбранные в InDesign изображения активного документа.
+
+Изображения за пределами вылетов можно обрабатывать или игнорировать.
 
 ### Резервное копирование
 
@@ -33,7 +42,7 @@ Trista DPI *Русский*
 Установка
 ---------
 
-Trista DPI *Endlish*
+Trista DPI *English*
 ====================
 
 Purpose
@@ -54,7 +63,16 @@ Optionally JPEG, PNG, GIF and BMP can be resaved as TIFF or PSD.
 
 ### Resolution
 
+Black and White (Bitmap) graphics processed separately from Color and Grayscale. Target resolution and delta (minimal difference from target) settings are also separated. By default it's a 300 dpi for Color and Grayscale, and 1200 dpi for Bitmap.
+
 ### Scopes
+
+* *All opened documents* - all documents, opened in InDesign will be processed.
+* *Active document* - only active document will be processed.
+* *Selected pages* - only selected pages of active document will be processed.
+* *Selected images* - only selected in InDesign images will be processed.
+
+Images that are off-bleeds can be processed or ignored.
 
 ### Backup
 
