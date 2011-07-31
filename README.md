@@ -26,10 +26,10 @@ Trista DPI *Русский*
 
 ### Области действия
 
-* *Все открытые документы* - в обработку идут все документы, открытые в InDesign.
-* *Активный документ* - в обработку идёт только активный документ.
-* *Выбранные страницы* - в обработку идут только выбранные страницы активного документа.
-* *Выбранные изображения* - в обработку идут только выбранные в InDesign изображения активного документа.
+* **Все открытые документы** - в обработку идут все документы, открытые в InDesign.
+* **Активный документ** - в обработку идёт только активный документ.
+* **Выбранные страницы** - в обработку идут только выбранные страницы активного документа.
+* **Выбранные изображения** - в обработку идут только выбранные в InDesign изображения активного документа.
 
 Изображения за пределами вылетов можно обрабатывать или игнорировать.
 
@@ -67,10 +67,10 @@ Black and White (Bitmap) graphics processed separately from Color and Grayscale.
 
 ### Scopes
 
-* *All opened documents* - all documents, opened in InDesign will be processed.
-* *Active document* - only active document will be processed.
-* *Selected pages* - only selected pages of active document will be processed.
-* *Selected images* - only selected in InDesign images will be processed.
+* **All opened documents** - all documents, opened in InDesign will be processed.
+* **Active document** - only active document will be processed.
+* **Selected pages** - only selected pages of active document will be processed.
+* **Selected images** - only selected in InDesign images will be processed.
 
 Images that are off-bleeds can be processed or ignored.
 
