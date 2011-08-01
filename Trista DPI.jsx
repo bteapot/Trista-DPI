@@ -1,8 +1,6 @@
 ﻿//
 // Обработка картинок
 //
-// v1.0
-//
 // Денис Либит
 // Студия КолорБокс
 // denis@boxcolor.ru
@@ -1551,7 +1549,11 @@ function isGraphicProcessable(myGraphic) {
 // Проверка картинки на битмапность
 // ------------------------------------------------------
 function isGraphicBitmap(myGraphic) {
-	return (myGraphic.space == "Black and White");
+	try {
+		return (myGraphic.space == "Black and White");
+	} catch (e) {
+		return false;
+	}
 }
 
 // Проверка картинки на формат, подпадающий под обработку
