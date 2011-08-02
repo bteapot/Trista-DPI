@@ -30,6 +30,7 @@ var myGraphics = {};
 var myActiveDocument;
 
 const kPrefsProcessBitmaps = "processBitmaps";
+const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
 const kPrefsChangeFormat = "changeFormat";
 const kPrefsClippedImagesToPSD = "clippedImagesToPSD";
 const kPrefsRemoveClipping = "removeClipping";
@@ -128,6 +129,7 @@ function initialSettings() {
 	
 	// Настройки по умолчанию
 	myPreferences[kPrefsProcessBitmaps] = false;
+	myPreferences[kPrefsLeaveGraphicsOpen] = false;
 	
 	myPreferences[kPrefsChangeFormat] = true;
 	myPreferences[kPrefsClippedImagesToPSD] = true;
@@ -425,6 +427,7 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
+		// Обработка битмапов
 		var myProcessBitmaps = add("checkbox", undefined, "Обрабатывать Bitmap");
 		myProcessBitmaps.onClick = function() {
 			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
@@ -432,6 +435,12 @@ function displayPreferences() {
 		}
 		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
 		
+		// Оставлять картинки открытыми в Фотошопе
+		var myLeaveGraphicsOpen = add("checkbox", undefined, "Оставлять картинки открытыми в Фотошопе");
+		myLeaveGraphicsOpen.onClick = function() {
+			myPreferences[kPrefsLeaveGraphicsOpen] = myLeaveGraphicsOpen.value;
+		}
+		myLeaveGraphicsOpen.value = myPreferences[kPrefsLeaveGraphicsOpen];
 	}
 		
 	// Группа изменения формата
@@ -1186,7 +1195,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode, myLeaveGraphicsOpen) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1208,7 +1217,11 @@ function processImages() {
 			// Формат
 			switch (myChangeFormatCode) {
 				case 0:
-					myDocument.close(SaveOptions.SAVECHANGES);
+					if (myLeaveGraphicsOpen) {
+						myDocument.save();
+					} else {
+						myDocument.close(SaveOptions.SAVECHANGES);
+					}
 					break;
 				case 1:
 					var myTIFFSaveOptions = new TiffSaveOptions();
@@ -1220,6 +1233,7 @@ function processImages() {
 					var myNewFile = new File(myNewFilePath);
 					myDocument.saveAs(myNewFile, myTIFFSaveOptions, true, Extension.LOWERCASE);
 					myDocument.close(SaveOptions.DONOTSAVECHANGES);
+					if (myLeaveGraphicsOpen) { app.open(myNewFile) }
 					break;
 				case 2:
 					var myPSDSaveOptions = new PhotoshopSaveOptions();
@@ -1229,6 +1243,7 @@ function processImages() {
 					var myNewFile = new File(myNewFilePath);
 					myDocument.saveAs(myNewFile, myPSDSaveOptions, true, Extension.LOWERCASE);
 					myDocument.close(SaveOptions.DONOTSAVECHANGES);
+					if (myLeaveGraphicsOpen) { app.open(myNewFile) }
 					break;
 			}
 		} catch (e) {
@@ -1318,7 +1333,8 @@ function processImages() {
 			myBT.body += myDoResample + ", ";
 			myBT.body += myTargetDPI + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
-			myBT.body += myChangeFormatCode;
+			myBT.body += myChangeFormatCode + ", ";
+			myBT.body += myPreferences[kPrefsLeaveGraphicsOpen];
 			myBT.body += ");";
 			myBT.onReceived = function(obj) {
 				// фотошоп принял посылку
