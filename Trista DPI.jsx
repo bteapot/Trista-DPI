@@ -154,12 +154,12 @@ function initialSettings() {
 	if ($.os.toLowerCase().indexOf("macintosh") != -1) {
 		// Маки
 		myPreferencesFileName = "~/Library/Preferences/ru.colorbox.trista-dpi.txt";
-		myPreferences[kPrefsBackupFolder] = Folder.encode(Folder.myDocuments + "/300dpi backup/");
+		myPreferences[kPrefsBackupFolder] = Folder.encode(Folder.myDocuments + "/Trista DPI backup/");
 		myTempFolder = Folder.temp + "/";
 	} else if ($.os.toLowerCase().indexOf("windows") != -1) {
 		// Виндовз
 		myPreferencesFileName = Folder.userData + "/ru.colorbox.trista-dpi.txt";
-		myPreferences[kPrefsBackupFolder] = Folder.myDocuments + "/300dpi backup/";
+		myPreferences[kPrefsBackupFolder] = Folder.myDocuments + "/Trista DPI backup/";
 		myTempFolder = Folder.temp + "/";
 	}
 
@@ -1292,16 +1292,32 @@ function processImages() {
 		
 		// Запускаем скрипт в фотошопе
 		try {
-			// Найти фотошоп
-			var myPhotoshop = "photoshop";
+			// Вычислить старший фотошоп
+			var myPhotoshop = "";
+			var myPhotoshopVersion = 0.0;
+			var myRunningPhotoshop = "";
+			var myRunningPhotoshopVersion = 0.0;
+			
 			for (var n = 0; n < apps.length; n++){
 				if (apps[n].indexOf("photoshop") != -1) {
+					var myInstanceVersion = parseFloat(apps[n].split("-")[1]);
+					if (myInstanceVersion > myPhotoshopVersion) {
+						myPhotoshop = apps[n];
+						myPhotoshopVersion = myInstanceVersion;
+					}
+					
 					if (BridgeTalk.isRunning(apps[n])) {
-						if (apps[n] > myPhotoshop) {
-							myPhotoshop = apps[n];
+						if (myInstanceVersion > myRunningPhotoshopVersion) {
+							myRunningPhotoshop = apps[n];
+							myRunningPhotoshopVersion = myInstanceVersion;
 						}
 					}
 				}
+			}
+			
+			// Хоть один фотошоп запущен?
+			if (myRunningPhotoshopVersion > 0.0) {
+				myPhotoshop = myRunningPhotoshop;
 			}
 			
 			// Запустить фотошоп, ежели чего
