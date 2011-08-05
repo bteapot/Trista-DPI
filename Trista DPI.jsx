@@ -36,6 +36,7 @@ const kPrefsChangeFormatTo = "changeFormatTo";
 const kPrefsChangeFormatToTIFF = "changeFormatToTIFF";
 const kPrefsChangeFormatToTIFFAndPSD = "changeFormatToTIFFAndPSD";
 const kPrefsChangeFormatToPSD = "changeFormatToPSD";
+const kPrefsMakeLayerFromBackground = "makeLayerFromBackground";
 const kPrefsRemoveClipping = "removeClipping";
 const kPrefsDeleteOriginals = "deleteOriginals";
 const kPrefsScope = "scope";
@@ -139,6 +140,7 @@ function initialSettings() {
 	
 	myPreferences[kPrefsChangeFormat] = true;
 	myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
+	myPreferences[kPrefsMakeLayerFromBackground] = false;
 	myPreferences[kPrefsRemoveClipping] = true;
 	myPreferences[kPrefsDeleteOriginals] = true;
 	
@@ -496,6 +498,7 @@ function displayPreferences() {
 			myChangeFormatToTIFFButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
 				myRemoveClipping.enabled = false;
+				myMakeLayerFromBackground.enabled = false;
 			}
 			myChangeFormatToTIFFButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 			
@@ -503,6 +506,7 @@ function displayPreferences() {
 			myChangeFormatToTIFFAndPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFFAndPSD;
 				myRemoveClipping.enabled = true;
+				myMakeLayerFromBackground.enabled = true;
 			}
 			myChangeFormatToTIFFAndPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD);
 			
@@ -510,9 +514,16 @@ function displayPreferences() {
 			myChangeFormatToPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToPSD;
 				myRemoveClipping.enabled = true;
+				myMakeLayerFromBackground.enabled = true;
 			}
 			myChangeFormatToPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD);
 			
+			var myMakeLayerFromBackground = add("checkbox", undefined, "Оторвать лэер от фона");
+			myMakeLayerFromBackground.onClick = function() {
+				myPreferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
+			}
+			myMakeLayerFromBackground.value = myPreferences[kPrefsMakeLayerFromBackground];
+	
 			var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
 			myRemoveClipping.onClick = function() {
 				myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
@@ -928,6 +939,7 @@ function displayPreferences() {
 	
 	// Отработать включение/выключение групп
 	myRemoveClipping.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
+	myMakeLayerFromBackground.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 	myProcessBitmaps.onClick();
 	myChangeFormat.onClick();
 	myDoBackup.onClick();
@@ -1231,7 +1243,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode, myLeaveGraphicsOpen) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1272,6 +1284,11 @@ function processImages() {
 					if (myLeaveGraphicsOpen) { app.open(myNewFile) }
 					break;
 				case 2:
+					if ((myMakeLayerFromBackground) && (myDocument.layers.length == 1) && (myDocument.hasOwnProperty("backgroundLayer"))) {
+						try {
+							myDocument.backgroundLayer.isBackgroundLayer = false;
+						} catch (e) {}
+					}
 					var myPSDSaveOptions = new PhotoshopSaveOptions();
 					with (myPSDSaveOptions) {
 						embedColorProfile = false;
@@ -1394,6 +1411,7 @@ function processImages() {
 			myBT.body += myTargetDPI + ", ";
 			myBT.body += myTargetDPIFactor + ", ";
 			myBT.body += myChangeFormatCode + ", ";
+			myBT.body += myPreferences[kPrefsMakeLayerFromBackground] + ", ";
 			myBT.body += myPreferences[kPrefsLeaveGraphicsOpen];
 			myBT.body += ");";
 			myBT.onReceived = function(obj) {
