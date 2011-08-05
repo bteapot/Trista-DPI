@@ -51,7 +51,10 @@ const kPrefsBackupFolder = "backupFolder";
 const kDocumentsObject = "documentsObject";
 const kDocumentsName = "documentsName";
 const kDocumentsLinksTotal = "documentsLinksTotal";
-const kDocumentsLinksBad = "documentsLinksBad";
+const kDocumentsLinksNormal = "documentsLinksNormal";
+const kDocumentsLinksOutOfDate = "documentsLinksOutOfDate";
+const kDocumentsLinksMissing = "documentsLinksMissing";
+const kDocumentsLinksEmbedded = "documentsLinksEmbedded";
 const kDocumentsBackupList = "documentsBackupList";
 
 const kGraphicsName = "graphicsName";
@@ -297,9 +300,9 @@ function checkDocuments() {
 		var myLinksMissing = 0;
 		var myLinksEmbedded = 0;
 		
-		for (var n = 0; n < myDocument.links.length; n++) {
+		for (var lnk = 0; lnk < myDocument.links.length; lnk++) {
 			
-			switch (myDocument.links[n].status) {
+			switch (myDocument.links[lnk].status) {
 				case LinkStatus.NORMAL:
 					myLinksNormal++;
 					break;
@@ -330,13 +333,33 @@ function checkDocuments() {
 		myDocuments[myDocumentPath][kDocumentsName] = myDocument.name;
 		myDocuments[myDocumentPath][kDocumentsObject] = myDocument;
 		myDocuments[myDocumentPath][kDocumentsLinksTotal] = myDocument.links.length;
-		myDocuments[myDocumentPath][kDocumentsLinksBad] = myLinksOutOfDate + myLinksMissing;
+		myDocuments[myDocumentPath][kDocumentsLinksNormal] = myLinksNormal;
+		myDocuments[myDocumentPath][kDocumentsLinksOutOfDate] = myLinksOutOfDate;
+		myDocuments[myDocumentPath][kDocumentsLinksMissing] = myLinksMissing;
+		myDocuments[myDocumentPath][kDocumentsLinksEmbedded] = myLinksEmbedded;
 		myDocuments[myDocumentPath][kDocumentsBackupList] = {};
 		if (myDocument == app.activeDocument) {
 			myActiveDocument = myDocumentPath;
 		}
 		
 		if (myFlagStopExecution) { break }
+	}
+	
+	// Предупредить о необновлённых картинках
+	var myDocListString = "";
+	for (var doc in myDocuments) {
+		if (myDocuments[doc][kDocumentsLinksOutOfDate] > 0) {
+			if (myDocListString.length > 0) {
+				myDocListString += ", " + myDocuments[doc][kDocumentsName];
+			} else {
+				myDocListString = myDocuments[doc][kDocumentsName];
+			}
+		}
+	}
+	
+	if (myDocListString.length > 0) {
+		if (!confirm("В открытых документах есть необновлённые изображения.\n" + myDocListString + ".\n\nВсё равно продолжить?"))
+			return false;
 	}
 	
 	showStatus(undefined, undefined, app.documents.length, undefined);
@@ -708,7 +731,7 @@ function displayPreferences() {
 						for (var doc in myDocuments) {
 							var newListItem = myItemsList.add("item", myDocuments[doc][kDocumentsName]);
 							newListItem[kListItemDocument] = doc;
-							if (myDocuments[doc][kDocumentsLinksBad] == 0) {
+							if (myDocuments[doc][kDocumentsLinksOutOfDate] == 0) {
 								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 								myItemsList.selection = myItemsList.items.length - 1;
 							} else {
@@ -720,7 +743,7 @@ function displayPreferences() {
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
 						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsName]);
-						if (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0) {
+						if (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0) {
 							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 						} else {
 							newListItem.image = ScriptUI.newImage(myCircleRedFile);
@@ -728,7 +751,7 @@ function displayPreferences() {
 						break;
 					case mySelectedPagesCode:
 						// Выбранные страницы
-						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0);
+						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
 						for (var n = 0; n < myDocuments[myActiveDocument][kDocumentsObject].pages.length; n++) {
 							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsObject].pages[n].name, n);
 							newListItem[kListItemDocument] = myDocuments[myActiveDocument][kDocumentsObject].pages[n];
@@ -808,7 +831,7 @@ function displayPreferences() {
 				var mySelectedCount = 0;
 				for (var i = 0; i < myItemsList.items.length; i++) {
 					if (myItemsList.items[i].selected) {
-						if (myDocuments[myItemsList.items[i][kListItemDocument]][kDocumentsLinksBad] != 0) {
+						if (myDocuments[myItemsList.items[i][kListItemDocument]][kDocumentsLinksOutOfDate] != 0) {
 							myItemsList.items[i].selected = false;
 						} else {
 							mySelectedCount++;
@@ -818,7 +841,7 @@ function displayPreferences() {
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
 			case myActiveDocCode:
-				myOKButton.enabled = (myDocuments[myActiveDocument][kDocumentsLinksBad] == 0);
+				myOKButton.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
 				break;
 			case mySelectedPagesCode:
 				var mySelectedCount = 0;
