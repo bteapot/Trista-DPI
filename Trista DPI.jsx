@@ -32,7 +32,10 @@ var myActiveDocument;
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
 const kPrefsChangeFormat = "changeFormat";
-const kPrefsClippedImagesToPSD = "clippedImagesToPSD";
+const kPrefsChangeFormatTo = "changeFormatTo";
+const kPrefsChangeFormatToTIFF = "changeFormatToTIFF";
+const kPrefsChangeFormatToTIFFAndPSD = "changeFormatToTIFFAndPSD";
+const kPrefsChangeFormatToPSD = "changeFormatToPSD";
 const kPrefsRemoveClipping = "removeClipping";
 const kPrefsDeleteOriginals = "deleteOriginals";
 const kPrefsScope = "scope";
@@ -135,7 +138,7 @@ function initialSettings() {
 	myPreferences[kPrefsLeaveGraphicsOpen] = false;
 	
 	myPreferences[kPrefsChangeFormat] = true;
-	myPreferences[kPrefsClippedImagesToPSD] = true;
+	myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
 	myPreferences[kPrefsRemoveClipping] = true;
 	myPreferences[kPrefsDeleteOriginals] = true;
 	
@@ -473,7 +476,7 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
-		var myChangeFormat = add("checkbox", undefined, "JPEG, PNG и т.п. в TIFF");
+		var myChangeFormat = add("checkbox", undefined, "Пересохранять JPEG, PNG и т.п. в формате:");
 		myChangeFormat.onClick = function() {
 			myPreferences[kPrefsChangeFormat] = myChangeFormat.value;
 			myChangeFormatGroup.enabled = myChangeFormat.value;
@@ -489,26 +492,33 @@ function displayPreferences() {
 			orientation = "column";
 			alignChildren = ["fill", "top"];
 			
-			var myClippedImagesToPSD = add("checkbox", undefined, "С обтравкой в PSD");
-			myClippedImagesToPSD.onClick = function() {
-				myPreferences[kPrefsClippedImagesToPSD] = myClippedImagesToPSD.value;
-				myClippingGroup.enabled = myClippedImagesToPSD.value;
+			var myChangeFormatToTIFFButton = add("radiobutton", undefined, "TIFF");
+			myChangeFormatToTIFFButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
+				myRemoveClipping.enabled = false;
 			}
-			myClippedImagesToPSD.value = myPreferences[kPrefsClippedImagesToPSD];
+			myChangeFormatToTIFFButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 			
-			var myClippingGroup = add("group");
-			with (myClippingGroup) {
-				orientation = "column";
-				alignChildren = ["fill", "top"];
-				margins = mySubControlMargins;
-				
-				var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
-				myRemoveClipping.onClick = function() {
-					myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
-				}
-				myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
+			var myChangeFormatToTIFFAndPSDButton = add("radiobutton", undefined, "TIFF, с обтравкой в PSD");
+			myChangeFormatToTIFFAndPSDButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFFAndPSD;
+				myRemoveClipping.enabled = true;
 			}
-		
+			myChangeFormatToTIFFAndPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD);
+			
+			var myChangeFormatToPSDButton = add("radiobutton", undefined, "PSD");
+			myChangeFormatToPSDButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToPSD;
+				myRemoveClipping.enabled = true;
+			}
+			myChangeFormatToPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD);
+			
+			var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
+			myRemoveClipping.onClick = function() {
+				myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
+			}
+			myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
+	
 			var myDeleteOriginals = add("checkbox", undefined, "Удалять оригиналы изображений");
 			myDeleteOriginals.onClick = function() {
 				myPreferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
@@ -765,7 +775,7 @@ function displayPreferences() {
 						function parseSelectedBranch(mySelectedObject) {
 							if (mySelectedObject.hasOwnProperty("allGraphics")) {
 								for (var i = 0; i < mySelectedObject.allGraphics.length; i++) {
-									if (isGraphicProcessable(mySelectedObject.allGraphics[i])) {
+									if (isGraphicRaster(mySelectedObject.allGraphics[i])) {
 										
 										// заглушка для вставленных картинок
 										if (!isGraphicPasted(mySelectedObject.allGraphics[i])) {
@@ -917,9 +927,9 @@ function displayPreferences() {
 	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
 	
 	// Отработать включение/выключение групп
+	myRemoveClipping.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 	myProcessBitmaps.onClick();
 	myChangeFormat.onClick();
-	myClippedImagesToPSD.onClick();
 	myDoBackup.onClick();
 	myScopeRadioGroup.children[0].onClick();
 	
@@ -997,14 +1007,17 @@ function checkGraphics() {
 		
 		var myDoProcess = true;
 		
+		// Линк в порядке?
+		if (!isGraphicLinkNormal(myGraphic)) myDoProcess = false;
+		
 		// Это растровая графика?
-		if (!isGraphicProcessable(myGraphic)) myDoProcess = false;
+		if (!isGraphicRaster(myGraphic)) myDoProcess = false;
 		
 		// Заглушка -- Линк не скопипастченный?
-		if (isGraphicPasted(myGraphic)) myDoProcess = false;
+		//if (isGraphicPasted(myGraphic)) myDoProcess = false;
 		
 		// Заглушка -- Линк не внедрённый?
-		if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
+		//if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
 		
 		// Битмап?
 		if ((!myPreferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
@@ -1284,7 +1297,15 @@ function processImages() {
 		
 		// Параметры скрипта для Фотошопа
 		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat]));
-		var myChangeFormatCode = (myDoChangeFormat ? (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1) : 0);
+		
+		var myChangeFormatCode;
+		if (myDoChangeFormat) {
+			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF)) myChangeFormatCode = 1;
+			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD)) myChangeFormatCode = (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
+			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD)) myChangeFormatCode = 2;
+		} else {
+			myChangeFormatCode = 0;
+		}
 		
 		var myDoResample;
 		var myTargetDPI;
@@ -1459,7 +1480,10 @@ function relinkImages(myGraphic) {
 			showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
 			
 			// Убить clipping?
-			if ((myPreferences[kPrefsRemoveClipping]) && (myGraphicsList[lnk].clippingPath.clippingType != ClippingPathType.NONE)) {
+			if ((myPreferences[kPrefsChangeFormat]) &&
+				(myPreferences[kPrefsChangeFormatTo] != kPrefsChangeFormatToTIFF) &&
+				(myPreferences[kPrefsRemoveClipping]) && 
+				(myGraphicsList[lnk].clippingPath.clippingType != ClippingPathType.NONE)) {
 				myGraphicsList[lnk].clippingPath.clippingType = ClippingPathType.NONE;
 			}
 			
@@ -1583,6 +1607,12 @@ function withinBleeds(myGraphic) {
 	return !myOffBleeds;
 }
 
+// Проверка картинки на нормальность линка
+// ------------------------------------------------------
+function isGraphicLinkNormal(myGraphic) {
+	return ((myGraphic.itemLink != undefined) && (myGraphic.itemLink.status == LinkStatus.NORMAL));
+}
+
 // Проверка картинки на скопипастченность
 // ------------------------------------------------------
 function isGraphicPasted(myGraphic) {
@@ -1597,7 +1627,7 @@ function isGraphicEmbedded(myGraphic) {
 
 // Проверка картинки на растровую графику
 // ------------------------------------------------------
-function isGraphicProcessable(myGraphic) {
+function isGraphicRaster(myGraphic) {
 	return (myGraphic.reflect.name == "Image");
 }
 
