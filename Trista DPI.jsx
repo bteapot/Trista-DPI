@@ -1,5 +1,5 @@
 ﻿//
-// Обработка картинок
+// Пакетная обработка растровых изображений в документах Adobe InDesign
 //
 // Денис Либит
 // Студия КолорБокс
@@ -67,6 +67,7 @@ const kGraphicsDoRelink = "graphicsDoRelink";
 const kGraphicsChangeFormat = "graphicsChangeFormat";
 const kGraphicsBitmap = "graphicsBitmap";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
+const kGraphicsMaxPercentage = "graphicsMaxPercentage";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
 const kGraphicsObjectList = "graphicsObjectList";
@@ -117,7 +118,7 @@ function process() {
 function preserveSettings() {
 	myAppSettingsPreserveBounds = app.imagePreferences.preserveBounds;
 	
-	app.imagePreferences.preserveBounds = true;
+	app.imagePreferences.preserveBounds = false;
 }
 
 // Восстановим настройки индизайна
@@ -1041,6 +1042,7 @@ function checkGraphics() {
 			if (myGraphicPath in myGraphics) {
 				// Попадался
 				if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][kGraphicsLowestDPI]) { myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic) }
+				if (maxPercentage(myGraphic) > myGraphics[myGraphicPath][kGraphicsMaxPercentage]) { myGraphics[myGraphicPath][kGraphicsMaxPercentage] = maxPercentage(myGraphic) }
 				if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][kGraphicsHasClippingPath] = true }
 				if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][kGraphicsWithinBleeds] = true }
 				myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
@@ -1051,6 +1053,7 @@ function checkGraphics() {
 				myGraphics[myGraphicPath][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
 				myGraphics[myGraphicPath][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
 				myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
+				myGraphics[myGraphicPath][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
 				myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
 				myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
 				myGraphics[myGraphicPath][kGraphicsObjectList] = {};
@@ -1243,7 +1246,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myTargetDPIFactor, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myMaxPercentage, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1258,8 +1261,7 @@ function processImages() {
 			
 			// Разрешение
 			if (myDoResample) {
-				myDocument.resizeImage(undefined, undefined, myDocument.resolution * myTargetDPIFactor, ResampleMethod.BICUBIC);
-				myDocument.resizeImage(undefined, undefined, myTargetDPI, ResampleMethod.NONE);
+				myDocument.resizeImage(UnitValue(myMaxPercentage, "%"), UnitValue(myMaxPercentage, "%"), myTargetDPI, ResampleMethod.BICUBIC);
 			}
 			
 			// Формат
@@ -1409,7 +1411,7 @@ function processImages() {
 			myBT.body += File.encode(myNewFilePath) + "\", ";
 			myBT.body += myDoResample + ", ";
 			myBT.body += myTargetDPI + ", ";
-			myBT.body += myTargetDPIFactor + ", ";
+			myBT.body += myGraphics[grc][kGraphicsMaxPercentage] + ", ";
 			myBT.body += myChangeFormatCode + ", ";
 			myBT.body += myPreferences[kPrefsMakeLayerFromBackground] + ", ";
 			myBT.body += myPreferences[kPrefsLeaveGraphicsOpen];
@@ -1492,24 +1494,37 @@ function relinkImages(myGraphic) {
 	
 	// Пройдёмся по всем картинкам
 	for (var grc in myGraphics) {
+		
 		// Пройдёмся по всем вхождениям
 		var myGraphicsList = myGraphics[grc][kGraphicsObjectList];
-		for (var lnk in myGraphicsList) {
+		for (var itm in myGraphicsList) {
 			showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
+			
+			var myDocument = documentOfGraphic(myGraphicsList[itm]);
+			
+			// Сохраним reference pointы во всех окошках документа
+			var myReferencePoints = [];
+			for (var wnd = 0; wnd < myDocument.layoutWindows.length; wnd++) {
+				myReferencePoints[wnd] = myDocument.layoutWindows[wnd].transformReferencePoint;
+				myDocument.layoutWindows[wnd].transformReferencePoint = AnchorPoint.TOP_LEFT_ANCHOR;
+			}
+			
+			// Скорректируем размер
+			myGraphicsList[itm].absoluteHorizontalScale *= (100 / myGraphics[grc][kGraphicsMaxPercentage]);
+			myGraphicsList[itm].absoluteVerticalScale *= (100 / myGraphics[grc][kGraphicsMaxPercentage]);
 			
 			// Убить clipping?
 			if ((myPreferences[kPrefsChangeFormat]) &&
 				(myPreferences[kPrefsChangeFormatTo] != kPrefsChangeFormatToTIFF) &&
 				(myPreferences[kPrefsRemoveClipping]) && 
-				(myGraphicsList[lnk].clippingPath.clippingType != ClippingPathType.NONE)) {
-				myGraphicsList[lnk].clippingPath.clippingType = ClippingPathType.NONE;
+				(myGraphicsList[itm].clippingPath.clippingType != ClippingPathType.NONE)) {
+				myGraphicsList[itm].clippingPath.clippingType = ClippingPathType.NONE;
 			}
 			
 			// Найдём линк в общедокументном списке линков
-			var myDocument = documentOfGraphic(myGraphicsList[lnk]);
 			var myLink;
 			for (var dcl = 0; dcl < myDocument.links.length; dcl++) {
-				if (myGraphicsList[lnk].itemLink.id == myDocument.links[dcl].id) {
+				if (myGraphicsList[itm].itemLink.id == myDocument.links[dcl].id) {
 					myLink = myDocument.links[dcl];
 				}
 			}
@@ -1522,6 +1537,11 @@ function relinkImages(myGraphic) {
 			// Обновляем
 			myLink.status;
 			myLink.update();
+			
+			// Восстановим reference pointы
+			for (var wnd = 0; wnd < myDocument.layoutWindows.length; wnd++) {
+				myDocument.layoutWindows[wnd].transformReferencePoint = myReferencePoints[wnd];
+			}
 			
 			if (myFlagStopExecution) { break }
 			
@@ -1676,25 +1696,25 @@ function isGraphicChangeFormat(myGraphic) {
 // Проверка цветной или серой картинки на низкое dpi
 // ------------------------------------------------------
 function isGraphicColorDPILow(myGraphicDPI) {
-	return (myGraphicDPI <= (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
+	return (myGraphicDPI < (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
 }
 
 // Проверка цветной или серой картинки на высокое dpi
 // ------------------------------------------------------
 function isGraphicColorDPIHigh(myGraphicDPI) {
-	return (myGraphicDPI >= (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
+	return (myGraphicDPI > (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
 }
 
 // Проверка битмап-картинки на низкое dpi
 // ------------------------------------------------------
 function isGraphicBitmapDPILow(myGraphicDPI) {
-	return (myGraphicDPI <= (myPreferences[kPrefsBitmapTargetDPI] - myPreferences[kPrefsBitmapDelta]));
+	return (myGraphicDPI < (myPreferences[kPrefsBitmapTargetDPI] - myPreferences[kPrefsBitmapDelta]));
 }
 
 // Проверка битмап-картинки на высокое dpi
 // ------------------------------------------------------
 function isGraphicBitmapDPIHigh(myGraphicDPI) {
-	return (myGraphicDPI >= (myPreferences[kPrefsBitmapTargetDPI] + myPreferences[kPrefsBitmapDelta]));
+	return (myGraphicDPI > (myPreferences[kPrefsBitmapTargetDPI] + myPreferences[kPrefsBitmapDelta]));
 }
 
 // Получить самый низкий effective dpi
@@ -1703,6 +1723,14 @@ function lowestDPI(myGraphic) {
 	var myHorizontalDPI = Math.abs((myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale);
 	var myVerticalDPI = Math.abs((myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale);
 	return (myHorizontalDPI < myVerticalDPI ? myVerticalDPI : myVerticalDPI);
+}
+
+// Получить самый высокий absolute scale
+// ------------------------------------------------------
+function maxPercentage(myGraphic) {
+	var myHorizontalPercent = Math.abs(myGraphic.absoluteHorizontalScale);
+	var myVerticalPercent = Math.abs(myGraphic.absoluteVerticalScale);
+	return (myHorizontalPercent > myVerticalPercent ? myHorizontalPercent : myVerticalPercent);
 }
 
 // Проверка картинки на clipping
