@@ -1328,18 +1328,15 @@ function processImages() {
 		
 		var myDoResample;
 		var myTargetDPI;
-		var myTargetDPIFactor;
 		if (myGraphics[grc][kGraphicsBitmap]) {
 			myDoResample = (
 				((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
 				((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
-			myTargetDPIFactor = myPreferences[kPrefsBitmapTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
 			myTargetDPI = myPreferences[kPrefsBitmapTargetDPI];
 		} else {
 			myDoResample = (
 				((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
 				((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
-			myTargetDPIFactor = myPreferences[kPrefsColorTargetDPI] / myGraphics[grc][kGraphicsLowestDPI];
 			myTargetDPI = myPreferences[kPrefsColorTargetDPI];
 		}
 		
