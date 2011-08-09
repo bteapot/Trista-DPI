@@ -17,8 +17,16 @@ Trista DPI *Русский*
 ### Форматы файлов
 
 В обработку берутся все поддерживаемые InDesign форматы растровой графики.
-
 По желанию JPEG, PNG, GIF и BMP можно пересохранять в TIFF или PSD.
+Новые файлы создаются в той-же папке, что и исходные.
+
+* **TIFF** - все неполиграфические форматы (JPEG, PNG и т.п.) будут пересохранены в TIFF.
+* **TIFF, с обтравкой в PSD** - вся неполиграфия в TIFF, а при обнаружении обтравки на картинке в InDesign - в PSD.
+* **PSD** - вся неполиграфия в PSD.
+
+При сохранении в PSD можно отрывать лэер от фона и убирать обтравку в InDesign.
+
+Оригиналы изображений можно удалять.
 
 ### Разрешение
 
@@ -35,12 +43,13 @@ Trista DPI *Русский*
 
 ### Резервное копирование
 
-### Дополнительно
-
-### Настройки
+По желанию можно делать резервные копии всех изменяемых файлов, включая публикацию InDesign.
+При совпадении имён файлов, лежащих в разных папках, к имени файла добавляется уникальный номер.
 
 Установка
 ---------
+
+Файл со скриптом (`Trista DPI.jsx`) положить в папку `Scripts Panel`. Открыть её можно прямо из InDesign: в палитре `Scripts` щёлкнуть правой кнопкой по папке `User` и сказать `Reveal in Finder` на Маке, или `Reveal In Explorer` под Windows.
 
 Trista DPI *English*
 ====================
@@ -50,7 +59,7 @@ Purpose
 
 Batch processing of raster images in Adobe InDesign documents.
 
-This script performs the routine tasks that occur in publishing workflow after the creation of "raw" layout with raw source images. Linked JPEGs resaved in the same folder as TIFF or PSD, depending on the presence of clipping, and resampled to (usually) 300 dpi. Source JPEGs are removed.
+This script performs the routine tasks that occur in publishing workflow after the creation of "raw" layout with raw source images. Linked JPEGs are resaved in the same folder as TIFF or PSD, depending on the presence of clipping, and resampled to (usually) 300 dpi. Source JPEGs are removed.
 
 Functionality
 -------------
@@ -58,8 +67,16 @@ Functionality
 ### File formats
 
 All InDesign raster graphics formats are supported.
-
 Optionally JPEG, PNG, GIF and BMP can be resaved as TIFF or PSD.
+New files are created in the same folder as originals.
+
+* **TIFF** - all non-polygraphic formats (JPEG, PNG etc.) are resaved to TIFF.
+* **TIFF, PSD when clipping detected** - all non-polygraphic to TIFF, and to PSD when detecting a clipping path in InDesign.
+* **PSD** - all non-polygraphic to PSD.
+
+Background layer can be transformed to normal layer, and clipping path in InDesign can be removed when resaving to PSD.
+
+Original images can be removed.
 
 ### Resolution
 
@@ -76,9 +93,10 @@ Images that are off-bleeds can be processed or ignored.
 
 ### Backup
 
-### Additional
-
-### Preferences
+Optionally, back up copies of all changed files can be made, including the InDesign publication.
+When the file names from different folders are identical, unique number are added to file names.
 
 Installation
 ------------
+
+Script file (`Trista DPI.jsx`) should be placed in folder `Scripts Panel`. It can be easily accessed from InDesign's Scripts panel by right-clicking a `User` folder, and choosing `Reveal In Finder`  in Mac OS or `Reveal In Explorer` in Windows.
