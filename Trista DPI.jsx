@@ -49,6 +49,7 @@ const kPrefsBitmapTargetDPI = "bitmapTargetDPI";
 const kPrefsBitmapDownsample = "bitmapDownsample";
 const kPrefsBitmapUpsample = "bitmapUpsample";
 const kPrefsBitmapDelta = "bitmapDelta";
+const kPrefsResampleMethod = "resampleMethod";
 const kPrefsBackup = "backup";
 const kPrefsBackupFolder = "backupFolder";
 
@@ -76,15 +77,21 @@ const kListItemDocument = "listItemObject";
 
 var myFlagStopExecution = false;
 
-var myAllDocsCode = 0;
-var myActiveDocCode = 1;
-var mySelectedPagesCode = 2;
-var mySelectedImagesCode = 3;
-var myScopeOptions = [
-	[myAllDocsCode, "Все открытые документы"], // Code, UI text
-	[myActiveDocCode, "Активный документ"],
-	[mySelectedPagesCode, "Выбранные страницы"],
-	[mySelectedImagesCode, "Выбранные изображения"]];
+const kResampleBicubic = 0;
+const kResampleSmootherSharper = 1;
+const kResampleOptions = [
+	[kResampleBicubic, "Bicubic"],
+	[kResampleSmootherSharper, "Bicubic smoother/sharper"]];
+
+const kScopeAllDocs = 0;
+const kScopeActiveDoc = 1;
+const kScopeSelectedPages = 2;
+const kScopeSelectedImages = 3;
+const kScopeOptions = [
+	[kScopeAllDocs, "Все открытые документы"],
+	[kScopeActiveDoc, "Активный документ"],
+	[kScopeSelectedPages, "Выбранные страницы"],
+	[kScopeSelectedImages, "Выбранные изображения"]];
 
 var myAppSettingsPreserveBounds;
 
@@ -145,7 +152,7 @@ function initialSettings() {
 	myPreferences[kPrefsRemoveClipping] = true;
 	myPreferences[kPrefsDeleteOriginals] = true;
 	
-	myPreferences[kPrefsScope] = 1;
+	myPreferences[kPrefsScope] = kScopeActiveDoc;
 	myPreferences[kPrefsIncludePasteboard] = false;
 	
 	myPreferences[kPrefsColorTargetDPI] = 300;
@@ -156,6 +163,8 @@ function initialSettings() {
 	myPreferences[kPrefsBitmapDownsample] = true;
 	myPreferences[kPrefsBitmapUpsample] = false;
 	myPreferences[kPrefsBitmapDelta] = 150;
+	
+	myPreferences[kPrefsResampleMethod] = kResampleBicubic;
 	
 	myPreferences[kPrefsBackup] = true;
 	
@@ -180,8 +189,8 @@ function initialSettings() {
 			var myPreferencesArray = myPreferencesFile.read(myPreferencesFile.length).split("\n");
 			var myPreferenceRecord = [];
 			
-			for (i = 0; i < myPreferencesArray.length; i++) {
-				myPreferenceRecord = myPreferencesArray[i].split("\t");
+			for (var prf = 0; prf < myPreferencesArray.length; prf++) {
+				myPreferenceRecord = myPreferencesArray[prf].split("\t");
 				
 				// Грузим только известные науке настройки, чтобы не захламлять файл с преференсами
 				if (myPreferences.hasOwnProperty(myPreferenceRecord[0])) {
@@ -295,10 +304,10 @@ function checkDocuments() {
 	
 	showStatus("ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ", "", 0, app.documents.length);
 	
-	for (var i = 0; i < app.documents.length; i++) {
-		var myDocument = app.documents[i];
+	for (var doc = 0; doc < app.documents.length; doc++) {
+		var myDocument = app.documents[doc];
 		
-		showStatus(undefined, myDocument.name, i, undefined);
+		showStatus(undefined, myDocument.name, doc, undefined);
 		
 		// Посчитаем и разберём линки
 		var myLinksNormal = 0;
@@ -384,7 +393,6 @@ function displayPreferences() {
 	var myPanelWidth = 400;
 	var mySubPanelMargins = [14, 14, 10, 10];
 	var mySubControlMargins = [18, 0, 0, 0];
-	var myStatusPanelMargins = [10, 10, 10, 10];
 	var mySubControlWidth = 300;
 	
 	// Картинки интерфейса
@@ -461,6 +469,7 @@ function displayPreferences() {
 		myProcessBitmaps.onClick = function() {
 			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
 			myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
+			myResampleMethodGroupEnable();
 		}
 		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
 		
@@ -562,72 +571,82 @@ function displayPreferences() {
 				}
 			}
 			
-			with (add("group")) {
+			var myColorValuesGroup = add("group");
+			with (myColorValuesGroup) {
 				orientation = "row";
-				alignChildren = ["left", "center"];
 				
-				var myColorUpsample = add("checkbox", undefined, "+");
-				myColorUpsample.value = myPreferences[kPrefsColorUpsample];
-				myColorUpsample.onClick = function() {
-					myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myColorUpsample = add("checkbox", undefined, "+");
+					myColorUpsample.value = myPreferences[kPrefsColorUpsample];
+					myColorUpsample.onClick = function() {
+						myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
+						myResampleMethodGroupEnable();
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myColorDownsample = add("checkbox", undefined, "-");
+					myColorDownsample.value = myPreferences[kPrefsColorDownsample];
+					myColorDownsample.onClick = function() {
+						myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
+						myResampleMethodGroupEnable();
+					}
+				}
+				
+					
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["right", "center"];
+					
+					with (add("statictext", undefined, " до:")) {
+						characters = 3;
+						justify = "right";
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myColorTargetDPI = add("edittext", undefined, myPreferences[kPrefsColorTargetDPI]);
+					myColorTargetDPI.characters = 6;
+					myColorTargetDPI.justify = "right";
+					myColorTargetDPI.onChange = function() {
+						myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["right", "center"];
+					
+					with (add("statictext", undefined, "∆:")) {
+						characters = 3;
+						justify = "right";
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myColorDelta = add("edittext", undefined, myPreferences[kPrefsColorDelta]);
+					myColorDelta.characters = 6;
+					myColorDelta.justify = "right";
+					myColorDelta.onChange = function() {
+						myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
+					}
 				}
 			}
 			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myColorDownsample = add("checkbox", undefined, "-");
-				myColorDownsample.value = myPreferences[kPrefsColorDownsample];
-				myColorDownsample.onClick = function() {
-					myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
-				}
-			}
-			
-				
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["right", "center"];
-				
-				with (add("statictext", undefined, " до:")) {
-					characters = 3;
-					justify = "right";
-				}
-			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myColorTargetDPI = add("edittext", undefined, myPreferences[kPrefsColorTargetDPI]);
-				myColorTargetDPI.characters = 6;
-				myColorTargetDPI.justify = "right";
-				myColorTargetDPI.onChange = function() {
-					myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
-				}
-			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["right", "center"];
-				
-				with (add("statictext", undefined, "∆:")) {
-					characters = 3;
-					justify = "right";
-				}
-			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myColorDelta = add("edittext", undefined, myPreferences[kPrefsColorDelta]);
-				myColorDelta.characters = 6;
-				myColorDelta.justify = "right";
-				myColorDelta.onChange = function() {
-					myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
-				}
-			}
+			// Частично отрисовать диалог, чтобы получить размер группы myColorValuesGroup
+			myDialog.layout.layout(true);
 		}
 		
 		// Битмап изображения
@@ -646,72 +665,108 @@ function displayPreferences() {
 				}
 			}
 			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
+			var myBitmapValuesGroup = add("group");
+			with (myBitmapValuesGroup) {
+				minimumSize.width = myColorValuesGroup.size.width;
 				
-				var myBitmapUpsample = add("checkbox", undefined, "+");
-				myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
-				myBitmapUpsample.onClick = function() {
-					myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myBitmapUpsample = add("checkbox", undefined, "+");
+					myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
+					myBitmapUpsample.onClick = function() {
+						myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
+						myResampleMethodGroupEnable();
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myBitmapDownsample = add("checkbox", undefined, "-");
+					myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
+					myBitmapDownsample.onClick = function() {
+						myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
+						myResampleMethodGroupEnable();
+					}
+				}
+				
+					
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["right", "center"];
+					
+					with (add("statictext", undefined, " до:")) {
+						characters = 3;
+						justify = "right";
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myBitmapTargetDPI = add("edittext", undefined, myPreferences[kPrefsBitmapTargetDPI]);
+					myBitmapTargetDPI.characters = 6;
+					myBitmapTargetDPI.justify = "right";
+					myBitmapTargetDPI.onChange = function() {
+						myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["right", "center"];
+					
+					with (add("statictext", undefined, "∆:")) {
+						characters = 3;
+						justify = "right";
+					}
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["left", "center"];
+					
+					var myBitmapDelta = add("edittext", undefined, myPreferences[kPrefsBitmapDelta]);
+					myBitmapDelta.characters = 6;
+					myBitmapDelta.justify = "right";
+					myBitmapDelta.onChange = function() {
+						myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
+					}
 				}
 			}
+		}
+		
+		// Метод ресэмплинга
+		var myResampleMethodGroup = add("group");
+		with (myResampleMethodGroup) {
+			orientation = "row";
+			alignChildren = ["right", "center"];
+			alignment = "right";
 			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myBitmapDownsample = add("checkbox", undefined, "-");
-				myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
-				myBitmapDownsample.onClick = function() {
-					myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
-				}
-			}
+			add("statictext", undefined, "Метод:");
 			
-				
-			with (add("group")) {
+			var myResampleMethodValues = add("group");
+			with (myResampleMethodValues) {
 				orientation = "row";
-				alignChildren = ["right", "center"];
+				minimumSize.width = myColorValuesGroup.size.width;
 				
-				with (add("statictext", undefined, " до:")) {
-					characters = 3;
-					justify = "right";
+				var myResampleDropdown = add('dropdownlist');
+				for (var itm = 0; itm < kResampleOptions.length; itm++) {
+					myResampleDropdown.add("item", kResampleOptions[itm][1]);
 				}
-			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myBitmapTargetDPI = add("edittext", undefined, myPreferences[kPrefsBitmapTargetDPI]);
-				myBitmapTargetDPI.characters = 6;
-				myBitmapTargetDPI.justify = "right";
-				myBitmapTargetDPI.onChange = function() {
-					myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
+				myResampleDropdown.onChange = function () {
+					myPreferences[kPrefsResampleMethod] = myResampleDropdown.selection;
 				}
+				myResampleDropdown.selection = myPreferences[kPrefsResampleMethod];
 			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["right", "center"];
-				
-				with (add("statictext", undefined, "∆:")) {
-					characters = 3;
-					justify = "right";
-				}
-			}
-			
-			with (add("group")) {
-				orientation = "row";
-				alignChildren = ["left", "center"];
-				
-				var myBitmapDelta = add("edittext", undefined, myPreferences[kPrefsBitmapDelta]);
-				myBitmapDelta.characters = 6;
-				myBitmapDelta.justify = "right";
-				myBitmapDelta.onChange = function() {
-					myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
-				}
-			}
+		}
+		
+		function myResampleMethodGroupEnable() {
+			myResampleMethodGroup.enabled = (myColorUpsample.value || myColorDownsample.value || (myBitmapGraphicsGroup.enabled && (myBitmapUpsample.value || myBitmapDownsample.value)));
 		}
 	}
 	
@@ -737,17 +792,17 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 	}
 	
-	function myButtonClicked() {
-		for (var i = 0; i < myScopeRadioGroup.children.length; i++)
-			if (myScopeRadioGroup.children[i].value == true) {
-				myPreferences[kPrefsScope] = i;
+	function myScopeButtonClicked() {
+		for (var btn = 0; btn < myScopeRadioGroup.children.length; btn++) {
+			if (myScopeRadioGroup.children[btn].value == true) {
+				myPreferences[kPrefsScope] = btn;
 				
 				// очистить список
 				myItemsList.removeAll();
 				
 				// прореагировать в зависимости от кнопки
 				switch (myPreferences[kPrefsScope]) {
-					case myAllDocsCode:
+					case kScopeAllDocs:
 						// Все открытые документы
 						myScopeItemsGroup.enabled = true;
 						for (var doc in myDocuments) {
@@ -761,7 +816,7 @@ function displayPreferences() {
 							}
 						}
 						break;
-					case myActiveDocCode:
+					case kScopeActiveDoc:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
 						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsName]);
@@ -771,28 +826,28 @@ function displayPreferences() {
 							newListItem.image = ScriptUI.newImage(myCircleRedFile);
 						}
 						break;
-					case mySelectedPagesCode:
+					case kScopeSelectedPages:
 						// Выбранные страницы
 						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
-						for (var n = 0; n < myDocuments[myActiveDocument][kDocumentsObject].pages.length; n++) {
-							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsObject].pages[n].name, n);
-							newListItem[kListItemDocument] = myDocuments[myActiveDocument][kDocumentsObject].pages[n];
-							myItemsList.selection = n;
+						for (var pge = 0; pge < myDocuments[myActiveDocument][kDocumentsObject].pages.length; pge++) {
+							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsObject].pages[pge].name, pge);
+							newListItem[kListItemDocument] = myDocuments[myActiveDocument][kDocumentsObject].pages[pge];
+							myItemsList.selection = pge;
 						}
 						break;
-					case mySelectedImagesCode:
+					case kScopeSelectedImages:
 						// Выбранные изображения
 						myScopeItemsGroup.enabled = false;
 						
 						function parseSelectedBranch(mySelectedObject) {
 							if (mySelectedObject.hasOwnProperty("allGraphics")) {
-								for (var i = 0; i < mySelectedObject.allGraphics.length; i++) {
-									if (isGraphicRaster(mySelectedObject.allGraphics[i])) {
+								for (var itm = 0; itm < mySelectedObject.allGraphics.length; itm++) {
+									if (isGraphicRaster(mySelectedObject.allGraphics[itm])) {
 										
 										// заглушка для вставленных картинок
-										if (!isGraphicPasted(mySelectedObject.allGraphics[i])) {
-											var newListItem = myItemsList.add("item", mySelectedObject.allGraphics[i].itemLink.name);
-											newListItem[kListItemDocument] = mySelectedObject.allGraphics[i];
+										if (!isGraphicPasted(mySelectedObject.allGraphics[itm])) {
+											var newListItem = myItemsList.add("item", mySelectedObject.allGraphics[itm].itemLink.name);
+											newListItem[kListItemDocument] = mySelectedObject.allGraphics[itm];
 											newListItem.image = ScriptUI.newImage(myCircleGreenFile);
 										}
 									}
@@ -800,8 +855,8 @@ function displayPreferences() {
 							}
 							
 							if (mySelectedObject.hasOwnProperty("length")) {
-								for (var i = 0; i < mySelectedObject.length; i++) {
-									parseSelectedBranch(mySelectedObject[i]);
+								for (var itm = 0; itm < mySelectedObject.length; itm++) {
+									parseSelectedBranch(mySelectedObject[itm]);
 								}
 							}
 						}
@@ -811,17 +866,18 @@ function displayPreferences() {
 				}
 				myItemsList.onClick();
 			}
+		}
 	}
 	
-	for (var i = 0; i < myScopeOptions.length; i++) {
-		var myButton = myScopeRadioGroup.add("radiobutton", undefined, myScopeOptions[i][1]);
-		myButton.value = (i == myActiveDocCode);
-		myButton.onClick = myButtonClicked;
+	for (var btn = 0; btn < kScopeOptions.length; btn++) {
+		var myButton = myScopeRadioGroup.add("radiobutton", undefined, kScopeOptions[btn][1]);
+		myButton.value = (btn == kScopeActiveDoc);
+		myButton.onClick = myScopeButtonClicked;
 		
-		if (i == myAllDocsCode) {
+		if (btn == kScopeAllDocs) {
 			myButton.enabled = (arrayLength(myDocuments) > 1);
 		}
-		if (i == mySelectedImagesCode) {
+		if (btn == kScopeSelectedImages) {
 			myButton.enabled = (myDocuments[myActiveDocument][kDocumentsObject].selection.length > 0)
 		}
 	}
@@ -849,12 +905,12 @@ function displayPreferences() {
 	
 	function listItemClicked(item) {
 		switch (myPreferences[kPrefsScope]) {
-			case myAllDocsCode:
+			case kScopeAllDocs:
 				var mySelectedCount = 0;
-				for (var i = 0; i < myItemsList.items.length; i++) {
-					if (myItemsList.items[i].selected) {
-						if (myDocuments[myItemsList.items[i][kListItemDocument]][kDocumentsLinksOutOfDate] != 0) {
-							myItemsList.items[i].selected = false;
+				for (var itm = 0; itm < myItemsList.items.length; itm++) {
+					if (myItemsList.items[itm].selected) {
+						if (myDocuments[myItemsList.items[itm][kListItemDocument]][kDocumentsLinksOutOfDate] != 0) {
+							myItemsList.items[itm].selected = false;
 						} else {
 							mySelectedCount++;
 						}
@@ -862,19 +918,19 @@ function displayPreferences() {
 				}
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
-			case myActiveDocCode:
+			case kScopeActiveDoc:
 				myOKButton.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
 				break;
-			case mySelectedPagesCode:
+			case kScopeSelectedPages:
 				var mySelectedCount = 0;
-				for (var i = 0; i < myItemsList.items.length; i++) {
-					if (myItemsList.items[i].selected) {
+				for (var itm = 0; itm < myItemsList.items.length; itm++) {
+					if (myItemsList.items[itm].selected) {
 						mySelectedCount++;
 					}
 				}
 				myOKButton.enabled = (mySelectedCount > 0);
 				break;
-			case mySelectedImagesCode:
+			case kScopeSelectedImages:
 				//myOKButton.enabled = true;
 				break;
 		}
@@ -939,12 +995,15 @@ function displayPreferences() {
 	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
 	
 	// Отработать включение/выключение групп
-	myRemoveClipping.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
-	myMakeLayerFromBackground.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 	myProcessBitmaps.onClick();
 	myChangeFormat.onClick();
-	myDoBackup.onClick();
+	myRemoveClipping.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
+	myMakeLayerFromBackground.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 	myScopeRadioGroup.children[0].onClick();
+	myDoBackup.onClick();
+	
+	// Окончательно отрисовать диалог
+	myDialog.layout.layout(true);
 	
 	// Показать диалог
 	if (myDialog.show() == 2) {
@@ -957,29 +1016,29 @@ function displayPreferences() {
 	
 	// Сделать список обрабатываемого
 	switch (myPreferences[kPrefsScope]) {
-		case myAllDocsCode:
-			for (var i = 0; i < myItemsList.items.length; i++) {
-				if (!myItemsList.items[i].selected) {
-					delete myDocuments[myItemsList.items[i][kListItemDocument]];
+		case kScopeAllDocs:
+			for (var itm = 0; itm < myItemsList.items.length; itm++) {
+				if (!myItemsList.items[itm].selected) {
+					delete myDocuments[myItemsList.items[itm][kListItemDocument]];
 				}
 			}
 			break;
-		case myActiveDocCode:
+		case kScopeActiveDoc:
 			for (var doc in myDocuments) {
 				if (doc != myActiveDocument)
 					delete myDocuments[doc];
 			}
 			break;
-		case mySelectedPagesCode:
-			for (var i = 0; i < myItemsList.items.length; i++) {
-				if (myItemsList.items[i].selected) {
-					myPages.push(myItemsList.items[i][kListItemDocument]);
+		case kScopeSelectedPages:
+			for (var itm = 0; itm < myItemsList.items.length; itm++) {
+				if (myItemsList.items[itm].selected) {
+					myPages.push(myItemsList.items[itm][kListItemDocument]);
 				}
 			}
 			break;
-		case mySelectedImagesCode:
-			for (var i = 0; i < myItemsList.items.length; i++) {
-				mySelection.push(myItemsList.items[i][kListItemDocument]);
+		case kScopeSelectedImages:
+			for (var itm = 0; itm < myItemsList.items.length; itm++) {
+				mySelection.push(myItemsList.items[itm][kListItemDocument]);
 			}
 			break;
 		default:
@@ -1066,8 +1125,8 @@ function checkGraphics() {
 	
 	// Пройтись по всем картинкам документа
 	function checkDocumentImages(myDocument) {
-		for (var i = 0; i < myDocument.allGraphics.length; i++) {
-			checkGraphic(myDocument.allGraphics[i]);
+		for (var grc = 0; grc < myDocument.allGraphics.length; grc++) {
+			checkGraphic(myDocument.allGraphics[grc]);
 			if (myFlagStopExecution) { return }
 		}
 	}
@@ -1075,7 +1134,7 @@ function checkGraphics() {
 	showStatus("ПРОВЕРКА КАРТИНОК", "", 0, 0);
 	
 	switch (myPreferences[kPrefsScope]) {
-		case myAllDocsCode:
+		case kScopeAllDocs:
 			var totalImages = 0;
 			for (var doc in myDocuments) {
 				totalImages += myDocuments[doc][kDocumentsObject].allGraphics.length;
@@ -1086,29 +1145,29 @@ function checkGraphics() {
 				checkDocumentImages(myDocuments[doc][kDocumentsObject]);
 			}
 			break;
-		case myActiveDocCode:
+		case kScopeActiveDoc:
 			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][kDocumentsObject].allGraphics.length);
 			checkDocumentImages(myDocuments[myActiveDocument][kDocumentsObject]);
 			break;
-		case mySelectedPagesCode:
+		case kScopeSelectedPages:
 			var totalImages = 0;
-			for (var i = 0; i < myPages.length; i++) {
-				totalImages += myPages[i].allGraphics.length;
+			for (var pge = 0; pge < myPages.length; pge++) {
+				totalImages += myPages[pge].allGraphics.length;
 			}
 			showStatus(undefined, undefined, 0, totalImages);
 			
-			for (var i = 0; i < myPages.length; i++) {
-				for (var n = 0; n < myPages[i].allGraphics.length; n++) {
-					checkGraphic(myPages[i].allGraphics[n]);
+			for (var pge = 0; pge < myPages.length; pge++) {
+				for (var grc = 0; grc < myPages[pge].allGraphics.length; grc++) {
+					checkGraphic(myPages[pge].allGraphics[grc]);
 					if (myFlagStopExecution) { return false }
 				}
 			}
 			break;
-		case mySelectedImagesCode:
+		case kScopeSelectedImages:
 			showStatus(undefined, undefined, 0, mySelection.length);
 			
-			for (var i = 0; i < mySelection.length; i++) {
-				checkGraphic(mySelection[i]);
+			for (var itm = 0; itm < mySelection.length; itm++) {
+				checkGraphic(mySelection[itm]);
 				if (myFlagStopExecution) { return false }
 			}
 			break;
@@ -1358,17 +1417,17 @@ function processImages() {
 			var myRunningPhotoshop = "";
 			var myRunningPhotoshopVersion = 0.0;
 			
-			for (var n = 0; n < apps.length; n++){
-				if (apps[n].indexOf("photoshop") != -1) {
-					var myInstanceVersion = parseFloat(apps[n].split("-")[1]);
+			for (var itm = 0; itm < apps.length; itm++){
+				if (apps[itm].indexOf("photoshop") != -1) {
+					var myInstanceVersion = parseFloat(apps[itm].split("-")[1]);
 					if (myInstanceVersion > myPhotoshopVersion) {
-						myPhotoshop = apps[n];
+						myPhotoshop = apps[itm];
 						myPhotoshopVersion = myInstanceVersion;
 					}
 					
-					if (BridgeTalk.isRunning(apps[n])) {
+					if (BridgeTalk.isRunning(apps[itm])) {
 						if (myInstanceVersion > myRunningPhotoshopVersion) {
-							myRunningPhotoshop = apps[n];
+							myRunningPhotoshop = apps[itm];
 							myRunningPhotoshopVersion = myInstanceVersion;
 						}
 					}
@@ -1585,10 +1644,10 @@ function withinBleeds(myGraphic) {
 	
 	// Найдём разворот, на котором лежит картинка
 	var mySpread;
-	for (var i = 0; i < myDocument.spreads.length; i++) {
-		for (var n = 0; n < myDocument.spreads[i].allGraphics.length; n++) {
-			if (myGraphic.id == myDocument.spreads[i].allGraphics[n].id) {
-				mySpread = myDocument.spreads[i];
+	for (var spr = 0; spr < myDocument.spreads.length; spr++) {
+		for (var grc = 0; grc < myDocument.spreads[spr].allGraphics.length; grc++) {
+			if (myGraphic.id == myDocument.spreads[spr].allGraphics[grc].id) {
+				mySpread = myDocument.spreads[spr];
 				break;
 			}
 		}
