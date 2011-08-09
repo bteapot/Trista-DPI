@@ -66,13 +66,13 @@ Functionality
 
 ### File formats
 
-All InDesign raster graphics formats are supported.
+All InDesign raster graphic formats are supported.
 Optionally JPEG, PNG, GIF and BMP can be resaved as TIFF or PSD.
 New files are created in the same folder as originals.
 
-* **TIFF** - all non-polygraphic formats (JPEG, PNG etc.) are resaved to TIFF.
-* **TIFF, PSD when clipping detected** - all non-polygraphic to TIFF, and to PSD when detecting a clipping path in InDesign.
-* **PSD** - all non-polygraphic to PSD.
+* **TIFF** - all non-prepress formats (JPEG, PNG etc.) are resaved to TIFF.
+* **TIFF, PSD when clipping detected** - all non-prepress to TIFF, and to PSD when detecting a clipping path in InDesign.
+* **PSD** - all non-prepress to PSD.
 
 Background layer can be transformed to normal layer, and clipping path in InDesign can be removed when resaving to PSD.
 
