@@ -1307,7 +1307,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myTargetDPI, myMaxPercentage, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myResampleMethodCode, myTargetDPI, myMaxPercentage, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1322,7 +1322,20 @@ function processImages() {
 			
 			// Разрешение
 			if (myDoResample) {
-				myDocument.resizeImage(UnitValue(myMaxPercentage, "%"), UnitValue(myMaxPercentage, "%"), myTargetDPI, ResampleMethod.BICUBIC);
+				var myResampleMethod;
+				switch (myResampleMethodCode) {
+					case 0:
+						myResampleMethod = ResampleMethod.BICUBIC;
+						break;
+					case 1:
+						if ((((myDocument.resolution / myTargetDPI) * 100) / myMaxPercentage) > 1) {
+							myResampleMethod = ResampleMethod.BICUBICSHARPER;
+						} else {
+							myResampleMethod = ResampleMethod.BICUBICSMOOTHER;
+						}
+						break;
+				}
+				myDocument.resizeImage(UnitValue(myMaxPercentage, "%"), UnitValue(myMaxPercentage, "%"), myTargetDPI, myResampleMethod);
 			}
 			
 			// Формат
@@ -1468,6 +1481,7 @@ function processImages() {
 			myBT.body += File.encode(grc) + "\", \"";
 			myBT.body += File.encode(myNewFilePath) + "\", ";
 			myBT.body += myDoResample + ", ";
+			myBT.body += myPreferences[kPrefsResampleMethod] + ", ";
 			myBT.body += myTargetDPI + ", ";
 			myBT.body += myGraphics[grc][kGraphicsMaxPercentage] + ", ";
 			myBT.body += myChangeFormatCode + ", ";
