@@ -389,6 +389,12 @@ function displayPreferences() {
 	// Собираем диалоговое окно
 	var myDialog = new Window("dialog", "Параметры");
 	
+	// Флаги
+	var myFlagChangeFormat = false;
+	var myFlagResample = false;
+	var myFlagScopeIsValid = false;
+	
+	
 	// Константы
 	var myPanelWidth = 400;
 	var mySubPanelMargins = [14, 14, 10, 10];
@@ -468,8 +474,7 @@ function displayPreferences() {
 		var myProcessBitmaps = add("checkbox", undefined, "Обрабатывать Bitmap");
 		myProcessBitmaps.onClick = function() {
 			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
-			myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
-			myResampleMethodGroupEnable();
+			myEnableInterfaceItems();
 		}
 		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
 		
@@ -491,14 +496,16 @@ function displayPreferences() {
 		var myChangeFormat = add("checkbox", undefined, "Пересохранять JPEG, PNG и т.п. в формате:");
 		myChangeFormat.onClick = function() {
 			myPreferences[kPrefsChangeFormat] = myChangeFormat.value;
-			myChangeFormatGroup.enabled = myChangeFormat.value;
+			myEnableInterfaceItems();
 		}
 		myChangeFormat.value = myPreferences[kPrefsChangeFormat];
 		
 		var myChangeFormatGroup = add("group");
-		myChangeFormatGroup.orientation = "column";
-		myChangeFormatGroup.alignChildren = ["left", "top"];
-		myChangeFormatGroup.margins = mySubControlMargins;
+		with (myChangeFormatGroup) {
+			orientation = "column";
+			alignChildren = ["left", "top"];
+			margins = mySubControlMargins;
+		}
 		
 		with (myChangeFormatGroup.add("group")) {
 			orientation = "column";
@@ -507,38 +514,42 @@ function displayPreferences() {
 			var myChangeFormatToTIFFButton = add("radiobutton", undefined, "TIFF");
 			myChangeFormatToTIFFButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
-				myRemoveClipping.enabled = false;
-				myMakeLayerFromBackground.enabled = false;
+				myEnableInterfaceItems();
 			}
 			myChangeFormatToTIFFButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 			
 			var myChangeFormatToTIFFAndPSDButton = add("radiobutton", undefined, "TIFF, с обтравкой в PSD");
 			myChangeFormatToTIFFAndPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFFAndPSD;
-				myRemoveClipping.enabled = true;
-				myMakeLayerFromBackground.enabled = true;
+				myEnableInterfaceItems();
 			}
 			myChangeFormatToTIFFAndPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD);
 			
 			var myChangeFormatToPSDButton = add("radiobutton", undefined, "PSD");
 			myChangeFormatToPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToPSD;
-				myRemoveClipping.enabled = true;
-				myMakeLayerFromBackground.enabled = true;
+				myEnableInterfaceItems();
 			}
 			myChangeFormatToPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD);
 			
-			var myMakeLayerFromBackground = add("checkbox", undefined, "Оторвать лэер от фона");
-			myMakeLayerFromBackground.onClick = function() {
-				myPreferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
+			var myPSDOptionsGroup = add("group");
+			with (myPSDOptionsGroup) {
+				orientation = "column";
+				alignChildren = ["left", "top"];
+				margins = mySubControlMargins;
+				
+				var myMakeLayerFromBackground = add("checkbox", undefined, "Оторвать лэер от фона");
+				myMakeLayerFromBackground.onClick = function() {
+					myPreferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
+				}
+				myMakeLayerFromBackground.value = myPreferences[kPrefsMakeLayerFromBackground];
+		
+				var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
+				myRemoveClipping.onClick = function() {
+					myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
+				}
+				myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
 			}
-			myMakeLayerFromBackground.value = myPreferences[kPrefsMakeLayerFromBackground];
-	
-			var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
-			myRemoveClipping.onClick = function() {
-				myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
-			}
-			myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
 	
 			var myDeleteOriginals = add("checkbox", undefined, "Удалять оригиналы изображений");
 			myDeleteOriginals.onClick = function() {
@@ -571,82 +582,74 @@ function displayPreferences() {
 				}
 			}
 			
-			var myColorValuesGroup = add("group");
-			with (myColorValuesGroup) {
+			with (add("group")) {
 				orientation = "row";
+				alignChildren = ["left", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myColorUpsample = add("checkbox", undefined, "+");
-					myColorUpsample.value = myPreferences[kPrefsColorUpsample];
-					myColorUpsample.onClick = function() {
-						myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
-						myResampleMethodGroupEnable();
-					}
-				}
-				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myColorDownsample = add("checkbox", undefined, "-");
-					myColorDownsample.value = myPreferences[kPrefsColorDownsample];
-					myColorDownsample.onClick = function() {
-						myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
-						myResampleMethodGroupEnable();
-					}
-				}
-				
-					
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["right", "center"];
-					
-					with (add("statictext", undefined, " до:")) {
-						characters = 3;
-						justify = "right";
-					}
-				}
-				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myColorTargetDPI = add("edittext", undefined, myPreferences[kPrefsColorTargetDPI]);
-					myColorTargetDPI.characters = 6;
-					myColorTargetDPI.justify = "right";
-					myColorTargetDPI.onChange = function() {
-						myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
-					}
-				}
-				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["right", "center"];
-					
-					with (add("statictext", undefined, "∆:")) {
-						characters = 3;
-						justify = "right";
-					}
-				}
-				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myColorDelta = add("edittext", undefined, myPreferences[kPrefsColorDelta]);
-					myColorDelta.characters = 6;
-					myColorDelta.justify = "right";
-					myColorDelta.onChange = function() {
-						myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
-					}
+				var myColorUpsample = add("checkbox", undefined, "+");
+				myColorUpsample.value = myPreferences[kPrefsColorUpsample];
+				myColorUpsample.onClick = function() {
+					myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
+					myEnableInterfaceItems();
 				}
 			}
 			
-			// Частично отрисовать диалог, чтобы получить размер группы myColorValuesGroup
-			myDialog.layout.layout(true);
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorDownsample = add("checkbox", undefined, "-");
+				myColorDownsample.value = myPreferences[kPrefsColorDownsample];
+				myColorDownsample.onClick = function() {
+					myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
+					myEnableInterfaceItems();
+				}
+			}
+			
+				
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, " до:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorTargetDPI = add("edittext", undefined, myPreferences[kPrefsColorTargetDPI]);
+				myColorTargetDPI.characters = 6;
+				myColorTargetDPI.justify = "right";
+				myColorTargetDPI.onChange = function() {
+					myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, "∆:")) {
+					characters = 3;
+					justify = "right";
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
+				
+				var myColorDelta = add("edittext", undefined, myPreferences[kPrefsColorDelta]);
+				myColorDelta.characters = 6;
+				myColorDelta.justify = "right";
+				myColorDelta.onChange = function() {
+					myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
+				}
+			}
 		}
 		
 		// Битмап изображения
@@ -665,77 +668,72 @@ function displayPreferences() {
 				}
 			}
 			
-			var myBitmapValuesGroup = add("group");
-			with (myBitmapValuesGroup) {
-				minimumSize.width = myColorValuesGroup.size.width;
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myBitmapUpsample = add("checkbox", undefined, "+");
-					myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
-					myBitmapUpsample.onClick = function() {
-						myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
-						myResampleMethodGroupEnable();
-					}
+				var myBitmapUpsample = add("checkbox", undefined, "+");
+				myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
+				myBitmapUpsample.onClick = function() {
+					myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
+					myEnableInterfaceItems();
 				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myBitmapDownsample = add("checkbox", undefined, "-");
-					myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
-					myBitmapDownsample.onClick = function() {
-						myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
-						myResampleMethodGroupEnable();
-					}
+				var myBitmapDownsample = add("checkbox", undefined, "-");
+				myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
+				myBitmapDownsample.onClick = function() {
+					myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
+					myEnableInterfaceItems();
 				}
+			}
+			
 				
-					
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["right", "center"];
-					
-					with (add("statictext", undefined, " до:")) {
-						characters = 3;
-						justify = "right";
-					}
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
+				
+				with (add("statictext", undefined, " до:")) {
+					characters = 3;
+					justify = "right";
 				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myBitmapTargetDPI = add("edittext", undefined, myPreferences[kPrefsBitmapTargetDPI]);
-					myBitmapTargetDPI.characters = 6;
-					myBitmapTargetDPI.justify = "right";
-					myBitmapTargetDPI.onChange = function() {
-						myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
-					}
+				var myBitmapTargetDPI = add("edittext", undefined, myPreferences[kPrefsBitmapTargetDPI]);
+				myBitmapTargetDPI.characters = 6;
+				myBitmapTargetDPI.justify = "right";
+				myBitmapTargetDPI.onChange = function() {
+					myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
 				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["right", "center"];
-					
-					with (add("statictext", undefined, "∆:")) {
-						characters = 3;
-						justify = "right";
-					}
+				with (add("statictext", undefined, "∆:")) {
+					characters = 3;
+					justify = "right";
 				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["left", "center"];
 				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["left", "center"];
-					
-					var myBitmapDelta = add("edittext", undefined, myPreferences[kPrefsBitmapDelta]);
-					myBitmapDelta.characters = 6;
-					myBitmapDelta.justify = "right";
-					myBitmapDelta.onChange = function() {
-						myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
-					}
+				var myBitmapDelta = add("edittext", undefined, myPreferences[kPrefsBitmapDelta]);
+				myBitmapDelta.characters = 6;
+				myBitmapDelta.justify = "right";
+				myBitmapDelta.onChange = function() {
+					myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
 				}
 			}
 		}
@@ -745,28 +743,25 @@ function displayPreferences() {
 		with (myResampleMethodGroup) {
 			orientation = "row";
 			alignChildren = ["right", "center"];
-			alignment = "right";
 			
-			add("statictext", undefined, "Метод:");
-			
-			var myResampleMethodValues = add("group");
-			with (myResampleMethodValues) {
+			with (add("group")) {
 				orientation = "row";
-				minimumSize.width = myColorValuesGroup.size.width;
+				alignChildren = ["right", "center"];
+				minimumSize.width = myPanelWidth / 3;
 				
-				var myResampleDropdown = add('dropdownlist');
-				for (var itm = 0; itm < kResampleOptions.length; itm++) {
-					myResampleDropdown.add("item", kResampleOptions[itm][1]);
+				with (add("statictext", undefined, "Метод:")) {
+					justify = "right";
 				}
-				myResampleDropdown.onChange = function () {
-					myPreferences[kPrefsResampleMethod] = myResampleDropdown.selection;
-				}
-				myResampleDropdown.selection = myPreferences[kPrefsResampleMethod];
 			}
-		}
-		
-		function myResampleMethodGroupEnable() {
-			myResampleMethodGroup.enabled = (myColorUpsample.value || myColorDownsample.value || (myBitmapGraphicsGroup.enabled && (myBitmapUpsample.value || myBitmapDownsample.value)));
+			
+			var myResampleDropdown = add('dropdownlist');
+			for (var itm = 0; itm < kResampleOptions.length; itm++) {
+				myResampleDropdown.add("item", kResampleOptions[itm][1]);
+			}
+			myResampleDropdown.onChange = function () {
+				myPreferences[kPrefsResampleMethod] = myResampleDropdown.selection;
+			}
+			myResampleDropdown.selection = kResampleBicubic;
 		}
 	}
 	
@@ -788,7 +783,6 @@ function displayPreferences() {
 	var myScopeRadioGroup = myScopeControlGroup.add("group");
 	with (myScopeRadioGroup) {
 		orientation = "column";
-		//minimumSize.width = myPanelWidth;
 		alignChildren = ["fill", "top"];
 	}
 	
@@ -916,10 +910,10 @@ function displayPreferences() {
 						}
 					}
 				}
-				myOKButton.enabled = (mySelectedCount > 0);
+				myFlagScopeIsValid = (mySelectedCount > 0);
 				break;
 			case kScopeActiveDoc:
-				myOKButton.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
+				myFlagScopeIsValid = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
 				break;
 			case kScopeSelectedPages:
 				var mySelectedCount = 0;
@@ -928,12 +922,14 @@ function displayPreferences() {
 						mySelectedCount++;
 					}
 				}
-				myOKButton.enabled = (mySelectedCount > 0);
+				myFlagScopeIsValid = (mySelectedCount > 0);
 				break;
 			case kScopeSelectedImages:
-				//myOKButton.enabled = true;
+				//myFlagScopeIsValid = true;
 				break;
 		}
+		
+		myEnableInterfaceItems();
 	}
 	
 	var myItemsList = myScopeItemsGroup.add("listbox", undefined, undefined, {multiselect: true});
@@ -950,7 +946,7 @@ function displayPreferences() {
 		var myDoBackup = add("checkbox", undefined, "Резервное копирование");
 		myDoBackup.onClick = function() {
 			myPreferences[kPrefsBackup] = myDoBackup.value;
-			myBackupGroup.enabled = myDoBackup.value;
+			myEnableInterfaceItems();
 		}
 		myDoBackup.value = myPreferences[kPrefsBackup];
 		
@@ -994,17 +990,23 @@ function displayPreferences() {
 	var myOKButton = myButtonsGroup.add("button", undefined, "OK", {name: "OK"});
 	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
 	
+	// Включение/выключение элементов интерфейса
+	function myEnableInterfaceItems() {
+		myFlagChangeFormat = myChangeFormat.value;
+		myFlagResample = (myColorUpsample.value || myColorDownsample.value || (myProcessBitmaps.value && (myBitmapUpsample.value || myBitmapDownsample.value)));
+		
+		myChangeFormatGroup.enabled = myFlagChangeFormat;
+		myPSDOptionsGroup.enabled = !myChangeFormatToTIFFButton.value;
+		myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
+		myResampleMethodGroup.enabled = myFlagResample;
+		myBackupGroup.enabled = myDoBackup.value;
+		
+		myOKButton.enabled = myFlagScopeIsValid && (myFlagChangeFormat || myFlagResample);
+	}
+	
 	// Отработать включение/выключение групп
-	myProcessBitmaps.onClick();
-	myChangeFormat.onClick();
-	myRemoveClipping.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
-	myMakeLayerFromBackground.enabled = !(myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
-	myScopeRadioGroup.children[0].onClick();
-	myDoBackup.onClick();
-	
-	// Окончательно отрисовать диалог
-	myDialog.layout.layout(true);
-	
+	myScopeButtonClicked();
+
 	// Показать диалог
 	if (myDialog.show() == 2) {
 		// Нажата отмена, удалить временные файлы
