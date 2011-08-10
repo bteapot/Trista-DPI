@@ -33,6 +33,7 @@ Trista DPI *Русский*
 Изображения Black and White (Bitmap) обрабатываются отдельно от Color и Grayscale. Настройки желаемого разрешения и дельты (минимального отличия разрешения от желаемого), соответственно, также задаются отдельно. По-умолчанию это 300 dpi для Color и Grayscale, и 1200 dpi для Bitmap.
 
 Можно выбрать метод изменения размера изображений:
+
 * **Bicubic** - по-умолчанию, и для уменьшения, и для увеличения.
 * **Bicubic sharper/smoother** - для увеличения резкости при уменьшении, и для сглаживания при увеличении.  
 
@@ -87,6 +88,7 @@ Original images can be removed.
 Black and White (Bitmap) graphics processed separately from Color and Grayscale. Target resolution and delta (minimal difference from target) settings are also separated. By default it's a 300 dpi for Color and Grayscale, and 1200 dpi for Bitmap.
 
 Image resampling method can be choosen from:
+
 * **Bicubic** - default, for downsampling and upsampling.
 * **Bicubic sharper/smoother** - sharper for downsampling and smoother for upsampling.  
 
