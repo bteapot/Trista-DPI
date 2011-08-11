@@ -9,6 +9,142 @@
 
 #target indesign
 
+// Локализованные сообщения
+const kLocalesList = [
+	["ru", "Русский"],
+	["en", "English"]];
+
+const msgCheckingOpenedDocumentsStatus = {
+	ru: "ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ",
+	en: "CHECKING OPENED DOCUMENTS" };
+const msgCheckingImagesStatus = {
+	ru: "ПРОВЕРКА КАРТИНОК",
+	en: "CHECKING IMAGES" };
+const msgBackupStatus = {
+	ru: "РЕЗЕРВНОЕ КОПИРОВАНИЕ",
+	en: "BACKUP" };
+const msgProcessingImagesStatus = {
+	ru: "ОБРАБОТКА ИЗОБРАЖЕНИЙ",
+	en: "PROCESSING IMAGES" };
+const msgRelinkingImagesStatus = {
+	ru: "ПЕРЕЛИНКОВКА ИЗОБРАЖЕНИЙ",
+	en: "UPDATING IMAGES" };
+const msgSavingDocumentsStatus = {
+	ru: "СОХРАНЕНИЕ ДОКУМЕНТОВ",
+	en: "SAVING DOCUMENTS" };
+const msgPreferencesError = {
+	ru: "Ошибка при чтении настроек.\nТо-есть файл-то с настройками есть, да вот открыть его не получается.\n\nВыполнение скрипта прекращаем.",
+	en: "Error reading preferences file.\nFile exists, but can't be opened.\n\nTerminating execution." };
+const msgExecution = {
+	ru: "Выполнение",
+	en: "Execution" };
+const msgOK = {
+	ru: "OK",
+	en: "OK" };
+const msgCancel = {
+	ru: "Отмена",
+	en: "Cancel" };
+const msgCantWorkInSuchConditions = {
+	ru: "Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.",
+	en: "Unable to work in such conditions.\nOpen at least one document to proceed." };
+const msgConfirmDocumentSave = {
+	ru: "Документ %1 изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?",
+	en: "Document %1 was changed since last save.\nIt should be saved to continue script execution. Save and continue?" };
+const msgConfirmOutdatedImages = {
+	ru: "В открытых документах есть необновлённые изображения.\n%1.\n\nВсё равно продолжить?",
+	en: "There are outdated images in opened documents.\n%1\n\nContinue anyway?" };
+const msgPreferences = {
+	ru: "Параметры",
+	en: "Preferences" };
+const msgCommonParameters = {
+	ru: "Общие параметры",
+	en: "Common parameters" };
+const msgProcessBitmaps = {
+	ru: "Обрабатывать Bitmap",
+	en: "Process Bitmaps" };
+const msgLeaveImagesOpen = {
+	ru: "Оставлять картинки открытыми в Фотошопе",
+	en: "Leave images opened in Photoshop" };
+const msgFormatOfImages = {
+	ru: "Формат файлов",
+	en: "Format of image files" };
+const msgResaveJPEGInFormat = {
+	ru: "Пересохранять JPEG, PNG и т.п. в формате:",
+	en: "Resave JPEG, PNG etc. with format:" };
+const msgTIFF = {
+	ru: "TIFF",
+	en: "TIFF" };
+const msgTIFFAndPSD = {
+	ru: "TIFF, с обтравкой в PSD",
+	en: "TIFF, with clipping to PSD" };
+const msgPSD = {
+	ru: "PSD",
+	en: "PSD" };
+const msgBackgroundLayerToNormalLayer = {
+	ru: "Оторвать слой от фона",
+	en: "Background layer to normal layer" };
+const msgRemoveClipping = {
+	ru: "Убрать обтравку",
+	en: "Remove clipping" };
+const msgRemoveSourceImages = {
+	ru: "Удалять оригиналы изображений",
+	en: "Remove source images" };
+const msgChangeResolution = {
+	ru: "Изменять разрешение (dpi)",
+	en: "Change resolution (dpi)" };
+const msgColorAndGrayscale = {
+	ru: "Color и Grayscale:",
+	en: "Color and Grayscale:" };
+const msgTo = {
+	ru: " до:",
+	en: " to:" };
+const msgDelta = {
+	ru: "∆:",
+	en: "∆:" };
+const msgBitmap = {
+	ru: "Bitmap:",
+	en: "Bitmap:" };
+const msgMethod = {
+	ru: "Метод:",
+	en: "Method:" };
+const msgScope = {
+	ru: "Область действия",
+	en: "Scope" };
+const msgProcessOffBleedImages = {
+	ru: "Обрабатывать картинки на полях",
+	en: "Process off-bleed images" };
+const msgBackup = {
+	ru: "Резервное копирование",
+	en: "Backup" };
+const msgDoBackup = {
+	ru: "Делать",
+	en: "Do backup" };
+const msgChoose = {
+	ru: "Выбрать",
+	en: "Choose" };
+const msgErrorSavingPreferences = {
+	ru: "Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.",
+	en: "Error saving preferences.\nIn general, this should not happen, so just in case the further execution of the script is canceled." };
+const msgEmbeddedImage = {
+	ru: "<внедрённая картинка>",
+	en: "<embedded image>" };
+const msgNoImagesToProcess = {
+	ru: "Нет картинок, нуждающихся в обработке.\nПоздравляю!",
+	en: "There is no images to process.\nCongratulations!" };
+const msgErrorCreatingBackupFolder = {
+	ru: "Ошибка при создании папки резервных копий.\nПроверьте правильность пути, слэш на конце, права доступа и т.п.",
+	en: "Error creating backup folder.\nCheck path, trailing slash, permissions, etc." };
+const msgErrorCopyingFile = {
+	ru: "Ошибка при резервном копировании файла.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
+	en: "Error copying file.\n%1\n\nCheck permissions, free space, etc." };
+const msgPhotoshopTimeout = {
+	ru: "Фотошоп не отвечает на запросы.\nВозможно, он там чем-то занят и всё-таки скоро освободится.\n\nПодождать ещё?",
+	en: "Photoshop is not responding.\nIt's possibly very busy right now, but will unfreeze soon.\n\nWait a little bit more?" };
+const msgErrorProcessingImage = {
+	ru: "Ошибка при обработке изображения\n%1\n\n%2",
+	en: "Error processing image\n%1\n\n%2" };
+
+// Глобальные переменные
 var myAppVersion;
 
 var myStatusWindow;
@@ -29,6 +165,7 @@ var mySelection = [];
 var myGraphics = {};
 var myActiveDocument;
 
+const kPrefsLocale = "locale";
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
 const kPrefsChangeFormat = "changeFormat";
@@ -76,6 +213,7 @@ const kGraphicsObjectList = "graphicsObjectList";
 const kListItemDocument = "listItemObject";
 
 var myFlagStopExecution = false;
+var myFlagRestart;
 
 const kResampleBicubic = 0;
 const kResampleSmootherSharper = 1;
@@ -88,10 +226,18 @@ const kScopeActiveDoc = 1;
 const kScopeSelectedPages = 2;
 const kScopeSelectedImages = 3;
 const kScopeOptions = [
-	[kScopeAllDocs, "Все открытые документы"],
-	[kScopeActiveDoc, "Активный документ"],
-	[kScopeSelectedPages, "Выбранные страницы"],
-	[kScopeSelectedImages, "Выбранные изображения"]];
+	[kScopeAllDocs, {
+		ru: "Все открытые документы",
+		en: "All opened documents" }],
+	[kScopeActiveDoc, {
+		ru: "Активный документ",
+		en: "Active document" }],
+	[kScopeSelectedPages, {
+		ru: "Выбранные страницы",
+		en: "Selected pages" }],
+	[kScopeSelectedImages, {
+		ru: "Выбранные изображения",
+		en: "Selected images" }]];
 
 var myAppSettingsPreserveBounds;
 
@@ -102,13 +248,16 @@ main();
 // ------------------------------------------------------
 function main() {
 	preserveSettings();
-	process();
+	do { process() } while (myFlagRestart);
 	restoreSettings();
 }
 
 // Главный производственный процесс
 // ------------------------------------------------------
 function process() {
+	myFlagRestart = false;
+	$.gc();
+	
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
 	if (!checkDocuments()) return;
@@ -142,7 +291,12 @@ function initialSettings() {
 	
 	myAppVersion = Number(app.version.match(/^\d+/));
 	
+	// Включим локализацию
+	$.localize = true;
+	
 	// Настройки по умолчанию
+	myPreferences[kPrefsLocale] = $.locale;
+	
 	myPreferences[kPrefsProcessBitmaps] = false;
 	myPreferences[kPrefsLeaveGraphicsOpen] = false;
 	
@@ -206,10 +360,13 @@ function initialSettings() {
 			
 			myPreferencesFile.close();
 		} else {
-			alert("Ошибка при чтении настроек.\nТо-есть файл-то с настройками есть, да вот открыть его не получается.\n\nВыполнение скрипта прекращаем.");
+			alert(msgPreferencesError);
 			return false;
 		}
 	}
+	
+	// Установить сохранённую ранее локализацию
+	$.locale = myPreferences[kPrefsLocale];
 	
 	return true;
 }
@@ -220,7 +377,7 @@ function makeStatusWindow() {
 	var myPanelWidth = 300;
 	
 	// Собираем палитру
-	myStatusWindow = new Window("palette", "Выполнение");
+	myStatusWindow = new Window("palette", localize(msgExecution));
 	myStatusWindow.orientation = "row";
 	myStatusWindow.alignChildren = ["fill", "top"];
 	
@@ -253,12 +410,12 @@ function makeStatusWindow() {
 	myStatusWindowGauge = myDisplayZone.add ("progressbar", undefined, 0, 100);
 	
 	// Область отображения кнопок
-	var myButtonsGroup = myStatusWindow.add("group");
-	myButtonsGroup.orientation = "column";
-	myButtonsGroup.alignment = ["right", "bottom"];
+	var myControlGroup = myStatusWindow.add("group");
+	myControlGroup.orientation = "column";
+	myControlGroup.alignment = ["right", "bottom"];
 	
 	// Кнопки окошка
-	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "cancel"});
+	var myCancelButton = myControlGroup.add("button", undefined, localize(msgCancel), {name: "cancel"});
 	myCancelButton.onClick = function() {
 		myFlagStopExecution = true;
 	}
@@ -278,7 +435,7 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
 	
 	// Отрисуем окошко
-	if (myAppVersion >= 6) { myStatusWindow.update(); }
+	//if (myAppVersion == 6) { myStatusWindow.update() }
 }
 
 // Спрячем окно с градусником
@@ -290,7 +447,7 @@ function hideStatus() {
 	myStatusWindowGauge.value = 0;
 	myStatusWindowGauge.maxvalue = 1;
 	
-	if (myAppVersion >= 6) { myStatusWindow.update(); }
+	//if (myAppVersion == 6) { myStatusWindow.update() }
 	myStatusWindow.hide();
 }
 
@@ -298,11 +455,11 @@ function hideStatus() {
 // ------------------------------------------------------
 function checkDocuments() {
 	if (app.documents.length == 0) {
-		alert("Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.");
+		alert(localize(msgCantWorkInSuchConditions));
 		return false;
 	}
 	
-	showStatus("ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ", "", 0, app.documents.length);
+	showStatus(localize(msgCheckingOpenedDocumentsStatus), "", 0, app.documents.length);
 	
 	for (var doc = 0; doc < app.documents.length; doc++) {
 		var myDocument = app.documents[doc];
@@ -337,7 +494,7 @@ function checkDocuments() {
 		
 		// Проверим, сохранён ли документ
 		if (myDocument.modified) {
-			if (!confirm("Документ " + myDocument.name + " изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?"))
+			if (!confirm(localize(msgConfirmDocumentSave, myDocument.name)))
 				return false;
 			myDocument.save();
 		}
@@ -373,7 +530,7 @@ function checkDocuments() {
 	}
 	
 	if (myDocListString.length > 0) {
-		if (!confirm("В открытых документах есть необновлённые изображения.\n" + myDocListString + ".\n\nВсё равно продолжить?"))
+		if (!confirm(localize(msgConfirmOutdatedImages, myDocListString)))
 			return false;
 	}
 	
@@ -387,7 +544,7 @@ function checkDocuments() {
 // ------------------------------------------------------
 function displayPreferences() {
 	// Собираем диалоговое окно
-	var myDialog = new Window("dialog", "Параметры");
+	var myDialog = new Window("dialog", localize(msgPreferences));
 	
 	// Флаги
 	var myFlagChangeFormat = false;
@@ -456,7 +613,7 @@ function displayPreferences() {
 	
 	// Поехали
 	var myCommonGroup = myDialog.add("group");
-	myCommonGroup.orientation = "row";
+	myCommonGroup.orientation = "column";
 	
 	var myParametersGroup = myCommonGroup.add("group");
 	myParametersGroup.orientation = "column";
@@ -464,14 +621,14 @@ function displayPreferences() {
 	myParametersGroup.alignChildren = ["fill", "top"];
 	
 	// Группа общих настроек
-	with (myParametersGroup.add("panel", undefined, "Общие параметры")) {
+	with (myParametersGroup.add("panel", undefined, localize(msgCommonParameters))) {
 		orientation = "column";
 		minimumSize.width = myPanelWidth;
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
 		// Обработка битмапов
-		var myProcessBitmaps = add("checkbox", undefined, "Обрабатывать Bitmap");
+		var myProcessBitmaps = add("checkbox", undefined, localize(msgProcessBitmaps));
 		myProcessBitmaps.onClick = function() {
 			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
 			myEnableInterfaceItems();
@@ -479,7 +636,7 @@ function displayPreferences() {
 		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
 		
 		// Оставлять картинки открытыми в Фотошопе
-		var myLeaveGraphicsOpen = add("checkbox", undefined, "Оставлять картинки открытыми в Фотошопе");
+		var myLeaveGraphicsOpen = add("checkbox", undefined, localize(msgLeaveImagesOpen));
 		myLeaveGraphicsOpen.onClick = function() {
 			myPreferences[kPrefsLeaveGraphicsOpen] = myLeaveGraphicsOpen.value;
 		}
@@ -487,13 +644,13 @@ function displayPreferences() {
 	}
 		
 	// Группа изменения формата
-	with (myParametersGroup.add("panel", undefined, "Формат файлов")) {
+	with (myParametersGroup.add("panel", undefined, localize(msgFormatOfImages))) {
 		orientation = "column";
 		minimumSize.width = myPanelWidth;
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
-		var myChangeFormat = add("checkbox", undefined, "Пересохранять JPEG, PNG и т.п. в формате:");
+		var myChangeFormat = add("checkbox", undefined, localize(msgResaveJPEGInFormat));
 		myChangeFormat.onClick = function() {
 			myPreferences[kPrefsChangeFormat] = myChangeFormat.value;
 			myEnableInterfaceItems();
@@ -511,21 +668,21 @@ function displayPreferences() {
 			orientation = "column";
 			alignChildren = ["fill", "top"];
 			
-			var myChangeFormatToTIFFButton = add("radiobutton", undefined, "TIFF");
+			var myChangeFormatToTIFFButton = add("radiobutton", undefined, localize(msgTIFF));
 			myChangeFormatToTIFFButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
 				myEnableInterfaceItems();
 			}
 			myChangeFormatToTIFFButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
 			
-			var myChangeFormatToTIFFAndPSDButton = add("radiobutton", undefined, "TIFF, с обтравкой в PSD");
+			var myChangeFormatToTIFFAndPSDButton = add("radiobutton", undefined, localize(msgTIFFAndPSD));
 			myChangeFormatToTIFFAndPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFFAndPSD;
 				myEnableInterfaceItems();
 			}
 			myChangeFormatToTIFFAndPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD);
 			
-			var myChangeFormatToPSDButton = add("radiobutton", undefined, "PSD");
+			var myChangeFormatToPSDButton = add("radiobutton", undefined, localize(msgPSD));
 			myChangeFormatToPSDButton.onClick = function() {
 				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToPSD;
 				myEnableInterfaceItems();
@@ -538,20 +695,20 @@ function displayPreferences() {
 				alignChildren = ["left", "top"];
 				margins = mySubControlMargins;
 				
-				var myMakeLayerFromBackground = add("checkbox", undefined, "Оторвать лэер от фона");
+				var myMakeLayerFromBackground = add("checkbox", undefined, localize(msgBackgroundLayerToNormalLayer));
 				myMakeLayerFromBackground.onClick = function() {
 					myPreferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
 				}
 				myMakeLayerFromBackground.value = myPreferences[kPrefsMakeLayerFromBackground];
 		
-				var myRemoveClipping = add("checkbox", undefined, "Убрать обтравку");
+				var myRemoveClipping = add("checkbox", undefined, localize(msgRemoveClipping));
 				myRemoveClipping.onClick = function() {
 					myPreferences[kPrefsRemoveClipping] = myRemoveClipping.value;
 				}
 				myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
 			}
 	
-			var myDeleteOriginals = add("checkbox", undefined, "Удалять оригиналы изображений");
+			var myDeleteOriginals = add("checkbox", undefined, localize(msgRemoveSourceImages));
 			myDeleteOriginals.onClick = function() {
 				myPreferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
 			}
@@ -560,7 +717,7 @@ function displayPreferences() {
 	}
 	
 	// Группа изменения разрешения
-	with (myParametersGroup.add("panel", undefined, "Изменять разрешение (dpi)")) {
+	with (myParametersGroup.add("panel", undefined, localize(msgChangeResolution))) {
 		orientation = "column";
 		minimumSize.width = myPanelWidth;
 		alignChildren = ["left", "center"];
@@ -577,7 +734,7 @@ function displayPreferences() {
 				alignChildren = ["right", "center"];
 				minimumSize.width = myPanelWidth / 3;
 				
-				with (add("statictext", undefined, "Color и Grayscale:")) {
+				with (add("statictext", undefined, localize(msgColorAndGrayscale))) {
 					justify = "right";
 				}
 			}
@@ -611,7 +768,7 @@ function displayPreferences() {
 				orientation = "row";
 				alignChildren = ["right", "center"];
 				
-				with (add("statictext", undefined, " до:")) {
+				with (add("statictext", undefined, localize(msgTo))) {
 					characters = 3;
 					justify = "right";
 				}
@@ -633,7 +790,7 @@ function displayPreferences() {
 				orientation = "row";
 				alignChildren = ["right", "center"];
 				
-				with (add("statictext", undefined, "∆:")) {
+				with (add("statictext", undefined, localize(msgDelta))) {
 					characters = 3;
 					justify = "right";
 				}
@@ -663,7 +820,7 @@ function displayPreferences() {
 				alignChildren = ["right", "center"];
 				minimumSize.width = myPanelWidth / 3;
 				
-				with (add("statictext", undefined, "Bitmap:")) {
+				with (add("statictext", undefined, localize(msgBitmap))) {
 					justify = "right";
 				}
 			}
@@ -697,7 +854,7 @@ function displayPreferences() {
 				orientation = "row";
 				alignChildren = ["right", "center"];
 				
-				with (add("statictext", undefined, " до:")) {
+				with (add("statictext", undefined, localize(msgTo))) {
 					characters = 3;
 					justify = "right";
 				}
@@ -719,7 +876,7 @@ function displayPreferences() {
 				orientation = "row";
 				alignChildren = ["right", "center"];
 				
-				with (add("statictext", undefined, "∆:")) {
+				with (add("statictext", undefined, localize(msgDelta))) {
 					characters = 3;
 					justify = "right";
 				}
@@ -749,7 +906,7 @@ function displayPreferences() {
 				alignChildren = ["right", "center"];
 				minimumSize.width = myPanelWidth / 3;
 				
-				with (add("statictext", undefined, "Метод:")) {
+				with (add("statictext", undefined, localize(msgMethod))) {
 					justify = "right";
 				}
 			}
@@ -766,7 +923,7 @@ function displayPreferences() {
 	}
 	
 	// Группа выбора области деятельности
-	var myScopeGroup = myParametersGroup.add("panel", undefined, "Область действия");
+	var myScopeGroup = myParametersGroup.add("panel", undefined, localize(msgScope));
 	with (myScopeGroup) {
 		orientation = "row";
 		minimumSize.width = myPanelWidth;
@@ -864,7 +1021,7 @@ function displayPreferences() {
 	}
 	
 	for (var btn = 0; btn < kScopeOptions.length; btn++) {
-		var myButton = myScopeRadioGroup.add("radiobutton", undefined, kScopeOptions[btn][1]);
+		var myButton = myScopeRadioGroup.add("radiobutton", undefined, localize(kScopeOptions[btn][1]));
 		myButton.value = (btn == kScopeActiveDoc);
 		myButton.onClick = myScopeButtonClicked;
 		
@@ -882,7 +1039,7 @@ function displayPreferences() {
 		alignChildren = ["fill", "bottom"];
 		margins = [0, 0, 0, 2];
 		
-		var myIncludePasteboard = add("checkbox", undefined, "Обрабатывать картинки на полях");
+		var myIncludePasteboard = add("checkbox", undefined, localize(msgProcessOffBleedImages));
 		myIncludePasteboard.onClick = function() {
 			myPreferences[kPrefsIncludePasteboard] = myIncludePasteboard.value;
 		}
@@ -937,13 +1094,13 @@ function displayPreferences() {
 	
 	
 	// Группа резервного копирования
-	with (myParametersGroup.add("panel", undefined, "Резервное копирование")) {
+	with (myParametersGroup.add("panel", undefined, localize(msgBackup))) {
 		orientation = "column";
 		minimumSize.width = myPanelWidth;
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
-		var myDoBackup = add("checkbox", undefined, "Резервное копирование");
+		var myDoBackup = add("checkbox", undefined, localize(msgDoBackup));
 		myDoBackup.onClick = function() {
 			myPreferences[kPrefsBackup] = myDoBackup.value;
 			myEnableInterfaceItems();
@@ -971,7 +1128,7 @@ function displayPreferences() {
 			orientation = "row";
 			alignChildren = ["right", "top"];
 			
-			var myBackupChooseButton = add("button", undefined, "Выбрать");
+			var myBackupChooseButton = add("button", undefined, localize(msgChoose));
 			myBackupChooseButton.onClick = function() {
 				var mySelectedFolder = Folder.selectDialog();
 				if (mySelectedFolder != null) {
@@ -982,13 +1139,37 @@ function displayPreferences() {
 		}
 	}
 	
-	// Группа кнопок диалогового окна
-	var myButtonsGroup = myCommonGroup.add("group");
-	myButtonsGroup.orientation = "column";
-	myButtonsGroup.alignment = ["right", "top"];
-	
-	var myOKButton = myButtonsGroup.add("button", undefined, "OK", {name: "OK"});
-	var myCancelButton = myButtonsGroup.add("button", undefined, "Отмена", {name: "Cancel"});
+	// Группа элементов контроля (круто, да?)
+	var myControlGroup = myCommonGroup.add("group");
+	with (myControlGroup) {
+		orientation = "row";
+		alignment = ["fill", "top"];
+		
+		// Выбор локали
+		var myLocaleDropdown = add("dropdownlist");
+		for (var itm = 0; itm < kLocalesList.length; itm++) {
+			var newListItem = myLocaleDropdown.add("item", kLocalesList[itm][1]);
+			newListItem[kListItemDocument] = kLocalesList[itm][0];
+			if (newListItem[kListItemDocument] == myPreferences[kPrefsLocale]) {
+				myLocaleDropdown.selection = newListItem;
+			}
+		}
+		myLocaleDropdown.onChange = function () {
+			myPreferences[kPrefsLocale] = myLocaleDropdown.selection[kListItemDocument];
+			$.locale = myPreferences[kPrefsLocale];
+			myDialog.close(3);
+		}
+		
+		// Группа кнопок диалогового окна
+		var myButtonsGroup = myControlGroup.add("group");
+		with (myButtonsGroup) {
+			orientation = "row";
+			alignment = ["right", "top"];
+			
+			var myCancelButton = add("button", undefined, localize(msgCancel), {name: "Cancel"});
+			var myOKButton = add("button", undefined, localize(msgOK), {name: "OK"});
+		}
+	}
 	
 	// Включение/выключение элементов интерфейса
 	function myEnableInterfaceItems() {
@@ -1004,16 +1185,45 @@ function displayPreferences() {
 		myOKButton.enabled = myFlagScopeIsValid && (myFlagChangeFormat || myFlagResample);
 	}
 	
+	// Сохранение настроек
+	function mySavePreferences() {
+		var myPreferencesArray = [];
+		for (var prf in myPreferences)
+			myPreferencesArray.push(prf + "\t" + typeof myPreferences[prf] + "\t" + myPreferences[prf]);
+		
+		var myPreferencesFile = new File(myPreferencesFileName);
+		if (myPreferencesFile.open("w")) {
+			myPreferencesFile.write(myPreferencesArray.join("\n"));
+			myPreferencesFile.close();
+		} else {
+			alert(localize(msgErrorSavingPreferences));
+		}
+	}
+	
 	// Отработать включение/выключение групп
 	myScopeButtonClicked();
 
 	// Показать диалог
-	if (myDialog.show() == 2) {
-		// Нажата отмена, удалить временные файлы
-		myCircleGreenFile.remove();
-		myCircleRedFile.remove();
-		
-		return false;
+	var myDialogResult = myDialog.show();
+	
+	// Удалить временные файлы
+	myCircleGreenFile.remove();
+	myCircleRedFile.remove();
+	
+	// Отработать варианты завершения диалога
+	switch (myDialogResult) {
+		case 1:
+			// OK
+			mySavePreferences();
+			break;
+		case 2:
+			// Cancel
+			return false;
+		case 3:
+			// Смена языка
+			mySavePreferences();
+			myFlagRestart = true;
+			return false;
 	}
 	
 	// Сделать список обрабатываемого
@@ -1047,23 +1257,6 @@ function displayPreferences() {
 			return false;
 	}
 	
-	// Сохранить настройки
-	var myPreferencesArray = [];
-	for (var prf in myPreferences)
-		myPreferencesArray.push(prf + "\t" + typeof myPreferences[prf] + "\t" + myPreferences[prf]);
-	
-	var myPreferencesFile = new File(myPreferencesFileName);
-	if (myPreferencesFile.open("w")) {
-		myPreferencesFile.write(myPreferencesArray.join("\n"));
-		myPreferencesFile.close();
-	} else {
-		alert("Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.");
-	}
-	
-	// Удалить временные файлы
-	myCircleGreenFile.remove();
-	myCircleRedFile.remove();
-	
 	return true;
 }
 
@@ -1076,7 +1269,7 @@ function checkGraphics() {
 		try {
 			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
 		} catch (e) {
-			showStatus(undefined, "<внедрённая картинка>", undefined, undefined);
+			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
 		}
 		
 		var myDoProcess = true;
@@ -1133,7 +1326,7 @@ function checkGraphics() {
 		}
 	}
 	
-	showStatus("ПРОВЕРКА КАРТИНОК", "", 0, 0);
+	showStatus(localize(msgCheckingImagesStatus), "", 0, 0);
 	
 	switch (myPreferences[kPrefsScope]) {
 		case kScopeAllDocs:
@@ -1220,7 +1413,7 @@ function checkGraphics() {
 	
 	// Есть что делать-то?
 	if (arrayLength(myGraphics) == 0) {
-		alert("Нет картинок, нуждающихся в обработке.\nПоздравляю!");
+		alert(localize(msgNoImagesToProcess));
 		return false;
 	}
 	
@@ -1247,17 +1440,18 @@ function backupImages() {
 		
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
-		var myBackupFolderName = myDocument.name + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2);
+		var myBackupFolderName = cleanupPath(File.decode(myDocument.fullName.name) + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2));
 		var myBackupFolder = new Folder(Folder.decode(myPreferences[kPrefsBackupFolder]) + myBackupFolderName);
+		
 		if (!myBackupFolder.create()) {
-			alert("Ошибка при создании папки резервных копий\nПроверьте правильность пути, слэш на конце, права доступа и т.п.");
+			alert(localize(msgErrorCreatingBackupFolder));
 			myFlagStopExecution = true;
 			return;
 		}
 		
 		// Вместе с картинками (чего уж там) сохраним и .indd документ
-		if (!myDocument.fullName.copy(uniqueFileName(myBackupFolder.fullName, myDocument.name))) {
-			alert("Ошибка при резервном копировании файла\n" + myDocument.name + "\n\nПроверьте права доступа, свободное место и т.п.");
+		if (!myDocument.fullName.copy(uniqueFileName(myBackupFolder.fullName, cleanupPath(File.decode(myDocument.fullName.name))))) {
+			alert(localize(msgErrorCopyingFile, myDocument.name));
 			myFlagStopExecution = true;
 			return;
 		}
@@ -1269,8 +1463,8 @@ function backupImages() {
 			showStatus(undefined,undefined, undefined, undefined);
 			
 			var myFile = new File(myBackupList[grc].filePath);
-			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, myBackupList[grc].name))) {
-				alert("Ошибка при резервном копировании файла\n" + myBackupList[grc].filePath + "\n\nПроверьте права доступа, свободное место и т.п.");
+			if (!myFile.copy(uniqueFileName(myBackupFolder.fullName, cleanupPath(File.decode(myFile.name))))) {
+				alert(localize(msgErrorCopyingFile, myBackupList[grc].filePath));
 				myFlagStopExecution = true;
 				return;
 			}
@@ -1288,7 +1482,7 @@ function backupImages() {
 		backupFilesCount += arrayLength(myDocuments[doc][kDocumentsBackupList]);
 	}
 	
-	showStatus("РЕЗЕРВНОЕ КОПИРОВАНИЕ", "", 0, backupFilesCount);
+	showStatus(localize(msgBackupStatus), "", 0, backupFilesCount);
 	
 	// Пройдёмся по всем выбранным документам
 	for (var doc in myDocuments) {
@@ -1383,7 +1577,7 @@ function processImages() {
 	}
 	
 	// Поехали
-	showStatus("ОБРАБОТКА ИЗОБРАЖЕНИЙ", "", 0, arrayLength(myGraphics));
+	showStatus(localize(msgProcessingImagesStatus), "", 0, arrayLength(myGraphics));
 	
 	for (var grc in myGraphics) {
 		showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
@@ -1417,7 +1611,7 @@ function processImages() {
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
 			var myFile = new File(grc);
-			myNewFilePath = uniqueFileName(myFile.path, myFile.name.slice(0, myFile.name.lastIndexOf(".") + 1) + (myChangeFormatCode == 1 ? "tif" : "psd"));
+			myNewFilePath = uniqueFileName(myFile.path, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + (myChangeFormatCode == 1 ? "tif" : "psd")));
 			myGraphics[grc][kGraphicsNewFilePath] = myNewFilePath;
 			myGraphics[grc][kGraphicsDoRelink] = true;
 		} else {
@@ -1463,7 +1657,7 @@ function processImages() {
 			
 			// Функция запроса дополнительного ожидания
 			function confirmTimeout() {
-				if (confirm("Фотошоп не отвечает на запросы.\nВозможно, он там чем-то занят и всё-таки скоро освободится.\n\nПодождать ещё?")) {
+				if (confirm(localize(msgPhotoshopTimeout))) {
 					// ждём, увеличив таймаут
 					myTimeout *= 1.5;
 					return true;
@@ -1540,7 +1734,7 @@ function processImages() {
 		if (myFlagStopExecution) { break }
 		
 		if (!myReturnValue) {
-			alert("Ошибка при обработке изображения\n" + grc + "\n\n" + myReturnMessage);
+			alert(localize(msgErrorProcessingImage, grc, myReturnMessage));
 			return false;
 		}
 		
@@ -1562,7 +1756,7 @@ function relinkImages(myGraphic) {
 		myTotalLinks += arrayLength(myGraphics[grc][kGraphicsObjectList]);
 	}
 	
-	showStatus("ПЕРЕЛИНКОВКА ИЗОБРАЖЕНИЙ", "", 0, myTotalLinks);
+	showStatus(localize(msgRelinkingImagesStatus), "", 0, myTotalLinks);
 	
 	// Пройдёмся по всем картинкам
 	for (var grc in myGraphics) {
@@ -1581,9 +1775,9 @@ function relinkImages(myGraphic) {
 				myDocument.layoutWindows[wnd].transformReferencePoint = AnchorPoint.TOP_LEFT_ANCHOR;
 			}
 			
-			// Скорректируем размер
-			myGraphicsList[itm].absoluteHorizontalScale *= (100 / myGraphics[grc][kGraphicsMaxPercentage]);
-			myGraphicsList[itm].absoluteVerticalScale *= (100 / myGraphics[grc][kGraphicsMaxPercentage]);
+			// Вычислим и запомним новый scale
+			var myTargetHorizontalScale = myGraphicsList[itm].absoluteHorizontalScale * (100 / myGraphics[grc][kGraphicsMaxPercentage]);
+			var myTargetVerticalScale = myGraphicsList[itm].absoluteVerticalScale * (100 / myGraphics[grc][kGraphicsMaxPercentage]);
 			
 			// Убить clipping?
 			if ((myPreferences[kPrefsChangeFormat]) &&
@@ -1608,7 +1802,11 @@ function relinkImages(myGraphic) {
 			
 			// Обновляем
 			myLink.status;
-			myLink.update();
+			myGraphicsList[itm] = myLink.update().parent;
+			
+			// Скорректируем размер
+			myGraphicsList[itm].absoluteHorizontalScale = myTargetHorizontalScale;
+			myGraphicsList[itm].absoluteVerticalScale = myTargetVerticalScale;
 			
 			// Восстановим reference pointы
 			for (var wnd = 0; wnd < myDocument.layoutWindows.length; wnd++) {
@@ -1636,7 +1834,7 @@ function relinkImages(myGraphic) {
 // Сохранить документы
 // ------------------------------------------------------
 function saveDocuments() {
-	showStatus("СОХРАНЕНИЕ ДОКУМЕНТОВ", "", 0, arrayLength(myDocuments));
+	showStatus(localize(msgSavingDocumentsStatus), "", 0, arrayLength(myDocuments));
 	
 	for (var doc in myDocuments) {
 		showStatus(undefined, myDocuments[doc][kDocumentsObject].name, undefined, undefined);
@@ -1655,6 +1853,9 @@ function saveDocuments() {
 // Лежит ли картинка на pasteboard
 // ------------------------------------------------------
 function withinBleeds(myGraphic) {
+	// Уплыла по тексту в оверсет?
+	try { myGraphic.visibleBounds } catch (e) { return false };
+	
 	// Получим документ этой картинки
 	var myDocument = documentOfGraphic(myGraphic);
 	
@@ -1851,6 +2052,12 @@ function uniqueFileName(myFolderName, myFileName) {
 		i++;
 	}
 	return myFile;
+}
+
+// Почистить путь от слешей
+// ------------------------------------------------------
+function cleanupPath(myPath) {
+	return myPath.replace(/[:]/g, "-");
 }
 
 // Дебаг
