@@ -48,8 +48,8 @@ const msgCantWorkInSuchConditions = {
 	ru: "Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.",
 	en: "Unable to work in such conditions.\nOpen at least one document to proceed." };
 const msgConfirmDocumentSave = {
-	ru: "Документ %1 изменён с момента последнего сохранения.\nЧтобы продолжить выполнение скрипта, документ необходимо сохранить.\n\nСохранить и продолжить?",
-	en: "Document %1 was changed since last save.\nIt should be saved to continue script execution. Save and continue?" };
+	ru: "Документ %1 изменён с момента последнего сохранения.\nЧтобы документ можно было обработать, его необходимо сохранить.\n\nСохранить?",
+	en: "Document %1 was changed since last save.\nThis document needs be saved to be processed. Save document?" };
 const msgConfirmOutdatedImages = {
 	ru: "В открытых документах есть необновлённые изображения.\n%1.\n\nВсё равно продолжить?",
 	en: "There are outdated images in opened documents.\n%1\n\nContinue anyway?" };
@@ -143,6 +143,12 @@ const msgPhotoshopTimeout = {
 const msgErrorProcessingImage = {
 	ru: "Ошибка при обработке изображения\n%1\n\n%2",
 	en: "Error processing image\n%1\n\n%2" };
+const msgProcessReadOnly = {
+	ru: "Файл изображения доступен только для чтения.\n%1\n\nМожно продолжить, сохраняя подобные файлы в папку \"%2\" рядом с файлом вёрстки InDesign.\n\nПродолжить?",
+	en: "Image file is read-only.\n%1\n\nIt is possible to continue, saving files in folder \"%2\" next to InDesign publication file.\n\nContinue?" };
+const msgImagesToProcess = {
+	ru: "Картинки в обработку",
+	en: "Images to process" };
 
 // Глобальные переменные
 var myAppVersion;
@@ -163,8 +169,14 @@ var myDocuments = {};
 var myPages = [];
 var mySelection = [];
 var myGraphics = {};
+var mySelectedGraphics = {};
+var myFolders = {};
 var myActiveDocument;
 
+var myFlagStopExecution = false;
+var myFlagRestart;
+
+// Константы
 const kPrefsLocale = "locale";
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
@@ -192,6 +204,9 @@ const kPrefsBackupFolder = "backupFolder";
 
 const kDocumentsObject = "documentsObject";
 const kDocumentsName = "documentsName";
+const kDocumentsProcessable = "documentsProcessable";
+const kDocumentsModified = "documentsModified";
+const kDocumentsFileReadonly = "documentsFileReadonly";
 const kDocumentsLinksTotal = "documentsLinksTotal";
 const kDocumentsLinksNormal = "documentsLinksNormal";
 const kDocumentsLinksOutOfDate = "documentsLinksOutOfDate";
@@ -201,19 +216,30 @@ const kDocumentsBackupList = "documentsBackupList";
 
 const kGraphicsName = "graphicsName";
 const kGraphicsNewFilePath = "graphicsNewFilePath";
+const kGraphicsFileReadonly = "graphicsFileReadonly";
+const kGraphicsFolderReadonly = "graphicsFolderReadonly";
 const kGraphicsDoRelink = "graphicsDoRelink";
 const kGraphicsChangeFormat = "graphicsChangeFormat";
+const kGraphicsResample = "graphicsResample";
 const kGraphicsBitmap = "graphicsBitmap";
+const kGraphicsActualDPI = "graphicsActualDPI";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
 const kGraphicsMaxPercentage = "graphicsMaxPercentage";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
 const kGraphicsObjectList = "graphicsObjectList";
+const kGraphicsObject = "graphicsObject";
+const kGraphicsParentDocument = "graphicsParentDocument";
+const kGraphicsObjectHScale = "graphicsObjectHScale";
+const kGraphicsObjectVScale = "graphicsObjectVScale";
+const kGraphicsObjectAbsoluteRotation = "graphicsObjectAbsoluteRotation";
+const kGraphicsObjectAbsoluteFlip = "graphicsObjectAbsoluteFlip";
+const kGraphicsObjectFlip = "graphicsObjectFlip";
+const kGraphicsObjectBounds = "graphicsObjectBounds";
 
-const kListItemDocument = "listItemObject";
+const kListItemObject = "listItemObject";
 
-var myFlagStopExecution = false;
-var myFlagRestart;
+const kFolderForReadOnly = "From read-only files";
 
 const kResampleBicubic = 0;
 const kResampleSmootherSharper = 1;
@@ -261,8 +287,8 @@ function process() {
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
 	if (!checkDocuments()) return;
+	if (!analyseGraphics()) return;
 	if (!displayPreferences()) return;
-	if (!checkGraphics()) return;
 	if (!backupImages()) return;
 	if (!processImages()) return;
 	if (!relinkImages()) return;
@@ -274,7 +300,7 @@ function process() {
 function preserveSettings() {
 	myAppSettingsPreserveBounds = app.imagePreferences.preserveBounds;
 	
-	app.imagePreferences.preserveBounds = false;
+	app.imagePreferences.preserveBounds = true;
 }
 
 // Восстановим настройки индизайна
@@ -374,6 +400,9 @@ function initialSettings() {
 // Соберём окно с градусником
 // ------------------------------------------------------
 function makeStatusWindow() {
+	// Уже сделано?
+	if (myStatusWindow != undefined) return true;
+	
 	var myPanelWidth = 300;
 	
 	// Собираем палитру
@@ -435,7 +464,7 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	if (myGaugeMax != undefined) myStatusWindowGauge.maxvalue = myGaugeMax;
 	
 	// Отрисуем окошко
-	//if (myAppVersion == 6) { myStatusWindow.update() }
+	if (myAppVersion == 6) { myStatusWindow.update() }
 }
 
 // Спрячем окно с градусником
@@ -459,12 +488,20 @@ function checkDocuments() {
 		return false;
 	}
 	
+	// Уже сделано?
+	if (arrayLength(myDocuments) > 0) return true;
+	
 	showStatus(localize(msgCheckingOpenedDocumentsStatus), "", 0, app.documents.length);
 	
 	for (var doc = 0; doc < app.documents.length; doc++) {
 		var myDocument = app.documents[doc];
 		
 		showStatus(undefined, myDocument.name, doc, undefined);
+		
+		// Проверим, сохранён ли документ
+		if (myDocument.modified) {
+			if (confirm(localize(msgConfirmDocumentSave, myDocument.name))) myDocument.save();
+		}
 		
 		// Посчитаем и разберём линки
 		var myLinksNormal = 0;
@@ -492,26 +529,27 @@ function checkDocuments() {
 			}
 		}
 		
-		// Проверим, сохранён ли документ
-		if (myDocument.modified) {
-			if (!confirm(localize(msgConfirmDocumentSave, myDocument.name)))
-				return false;
-			myDocument.save();
-		}
-		
 		// Добавим документ в список
-		var myDocumentPath = myDocument.fullName;
-		myDocuments[myDocumentPath] = {};
-		myDocuments[myDocumentPath][kDocumentsName] = myDocument.name;
-		myDocuments[myDocumentPath][kDocumentsObject] = myDocument;
-		myDocuments[myDocumentPath][kDocumentsLinksTotal] = myDocument.links.length;
-		myDocuments[myDocumentPath][kDocumentsLinksNormal] = myLinksNormal;
-		myDocuments[myDocumentPath][kDocumentsLinksOutOfDate] = myLinksOutOfDate;
-		myDocuments[myDocumentPath][kDocumentsLinksMissing] = myLinksMissing;
-		myDocuments[myDocumentPath][kDocumentsLinksEmbedded] = myLinksEmbedded;
-		myDocuments[myDocumentPath][kDocumentsBackupList] = {};
+		var doc = myDocument.fullName; // в CS5 можно бы использовать .id - как-то надёжнее выглядит
+		myDocuments[doc] = {};
+		myDocuments[doc][kDocumentsName] = myDocument.name;
+		myDocuments[doc][kDocumentsObject] = myDocument;
+		myDocuments[doc][kDocumentsModified] = myDocument.modified;
+		myDocuments[doc][kDocumentsFileReadonly] = myDocument.readOnly;
+		myDocuments[doc][kDocumentsLinksTotal] = myDocument.links.length;
+		myDocuments[doc][kDocumentsLinksNormal] = myLinksNormal;
+		myDocuments[doc][kDocumentsLinksOutOfDate] = myLinksOutOfDate;
+		myDocuments[doc][kDocumentsLinksMissing] = myLinksMissing;
+		myDocuments[doc][kDocumentsLinksEmbedded] = myLinksEmbedded;
+		
+		myDocuments[doc][kDocumentsProcessable] = (
+			(!myDocuments[doc][kDocumentsModified]) &&
+			(!myDocuments[doc][kDocumentsFileReadonly]) &&
+			(myDocuments[doc][kDocumentsLinksOutOfDate] == 0));
+		
+		myDocuments[doc][kDocumentsBackupList] = {};
 		if (myDocument == app.activeDocument) {
-			myActiveDocument = myDocumentPath;
+			myActiveDocument = doc;
 		}
 		
 		if (myFlagStopExecution) { break }
@@ -538,6 +576,105 @@ function checkDocuments() {
 	hideStatus();
 	
 	return !myFlagStopExecution;
+}
+
+// Составим список всех картинок
+// ------------------------------------------------------
+function analyseGraphics() {
+	
+	// Функция проверки
+	function checkGraphic(myGraphic) {
+		try {
+			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
+		} catch (e) {
+			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
+		}
+		
+		var myDoProcess = true;
+		
+		// Линк в порядке?
+		if (!isGraphicLinkNormal(myGraphic)) myDoProcess = false;
+		
+		// Это векторная графика?
+		if (!isGraphicRaster(myGraphic)) myDoProcess = false;
+		
+		// Заглушка -- Линк не скопипастченный?
+		//if (isGraphicPasted(myGraphic)) myDoProcess = false;
+		
+		// Заглушка -- Линк не внедрённый?
+		//if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
+		
+		// Битмап?
+		if ((!myPreferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
+		
+		// Обрабатываем?
+		if (myDoProcess) {
+			var grc = myGraphic.itemLink.filePath;
+			
+			// Проверим, не попадался уже ли этот файл
+			if (!(grc in myGraphics)) {
+				// Не попадался, добавим первое вхождение
+				myGraphics[grc] = {};
+				myGraphics[grc][kGraphicsName] = myGraphic.itemLink.name;
+				myGraphics[grc][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
+				myGraphics[grc][kGraphicsResample] = false;
+				myGraphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
+				myGraphics[grc][kGraphicsActualDPI] = myGraphic.actualPpi[0];
+				myGraphics[grc][kGraphicsObjectList] = {};
+				
+				// Проверка read-only
+				var myFile = new File(myGraphic.itemLink.filePath);
+				myGraphics[grc][kGraphicsFileReadonly] = myFile.readonly;
+				myGraphics[grc][kGraphicsFolderReadonly] = isFolderReadOnly(myFile.parent);
+			}
+			
+			// Добавим в список это вхождение
+			var itm = myGraphic.id;
+			
+			myGraphics[grc][kGraphicsObjectList][itm] = {};
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject] = myGraphic;
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentOfGraphic(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI] = lowestDPI(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectHScale] = (myGraphic.absoluteFlip == Flip.HORIZONTAL ? -1 : 1) * myGraphic.absoluteHorizontalScale / 100;
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectVScale] = (myGraphic.absoluteFlip == Flip.VERTICAL ? -1 : 1) * myGraphic.absoluteVerticalScale / 100;
+		}
+		
+		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
+	}
+	
+	// Уже сделано?
+	if (arrayLength(myGraphics) > 0) return true;
+	
+	showStatus(localize(msgCheckingImagesStatus), "", 0, 0);
+	
+	// Посчитаем картинки
+	var totalImages = 0;
+	for (var doc in myDocuments) {
+		totalImages += myDocuments[doc][kDocumentsObject].allGraphics.length;
+	}
+	showStatus(undefined, undefined, 0, totalImages);
+	
+	// Пройдёмся по всем документам
+	for (var doc in myDocuments) {
+		if (myDocuments[doc][kDocumentsProcessable]) {
+			// Пройдёмся по всем картинкам
+			for (var grc = 0; grc < myDocuments[doc][kDocumentsObject].allGraphics.length; grc++) {
+				checkGraphic(myDocuments[doc][kDocumentsObject].allGraphics[grc]);
+				if (myFlagStopExecution) { break }
+			}
+			if (myFlagStopExecution) { break }
+		}
+	}
+	
+	hideStatus();
+	
+	// Нажата отмена?
+	if (myFlagStopExecution) { return false }
+	
+	return true;
 }
 
 // Покажем диалог с настройками
@@ -610,9 +747,17 @@ function displayPreferences() {
 	// Делаем временные файлы с картинками
 	var myCircleGreenFile = writePicture("img_green.png", myCircleGreenData);
 	var myCircleRedFile = writePicture("img_red.png", myCircleRedData);
+	var myCircleGreenImage = ScriptUI.newImage(myCircleGreenFile);
+	var myCircleRedImage = ScriptUI.newImage(myCircleRedFile);
 	
 	// Поехали
-	var myCommonGroup = myDialog.add("group");
+	myDialog.orientation = "column";
+	
+	var myUpperGroup = myDialog.add("group");
+	myUpperGroup.orientation = "row";
+	myUpperGroup.alignChildren = ["fill", "fill"];
+	
+	var myCommonGroup = myUpperGroup.add("group");
 	myCommonGroup.orientation = "column";
 	
 	var myParametersGroup = myCommonGroup.add("group");
@@ -911,7 +1056,7 @@ function displayPreferences() {
 				}
 			}
 			
-			var myResampleDropdown = add('dropdownlist');
+			var myResampleDropdown = add("dropdownlist");
 			for (var itm = 0; itm < kResampleOptions.length; itm++) {
 				myResampleDropdown.add("item", kResampleOptions[itm][1]);
 			}
@@ -958,12 +1103,12 @@ function displayPreferences() {
 						myScopeItemsGroup.enabled = true;
 						for (var doc in myDocuments) {
 							var newListItem = myItemsList.add("item", myDocuments[doc][kDocumentsName]);
-							newListItem[kListItemDocument] = doc;
-							if (myDocuments[doc][kDocumentsLinksOutOfDate] == 0) {
-								newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+							newListItem[kListItemObject] = doc;
+							if (myDocuments[doc][kDocumentsProcessable]) {
+								newListItem.image = myCircleGreenImage;
 								myItemsList.selection = myItemsList.items.length - 1;
 							} else {
-								newListItem.image = ScriptUI.newImage(myCircleRedFile);
+								newListItem.image = myCircleRedImage;
 							}
 						}
 						break;
@@ -971,18 +1116,18 @@ function displayPreferences() {
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
 						var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsName]);
-						if (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0) {
-							newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+						if (myDocuments[myActiveDocument][kDocumentsProcessable]) {
+							newListItem.image = myCircleGreenImage;
 						} else {
-							newListItem.image = ScriptUI.newImage(myCircleRedFile);
+							newListItem.image = myCircleRedImage;
 						}
 						break;
 					case kScopeSelectedPages:
 						// Выбранные страницы
-						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
+						myScopeItemsGroup.enabled = (myDocuments[myActiveDocument][kDocumentsProcessable]);
 						for (var pge = 0; pge < myDocuments[myActiveDocument][kDocumentsObject].pages.length; pge++) {
 							var newListItem = myItemsList.add("item", myDocuments[myActiveDocument][kDocumentsObject].pages[pge].name, pge);
-							newListItem[kListItemDocument] = myDocuments[myActiveDocument][kDocumentsObject].pages[pge];
+							newListItem[kListItemObject] = myDocuments[myActiveDocument][kDocumentsObject].pages[pge];
 							myItemsList.selection = pge;
 						}
 						break;
@@ -998,8 +1143,8 @@ function displayPreferences() {
 										// заглушка для вставленных картинок
 										if (!isGraphicPasted(mySelectedObject.allGraphics[itm])) {
 											var newListItem = myItemsList.add("item", mySelectedObject.allGraphics[itm].itemLink.name);
-											newListItem[kListItemDocument] = mySelectedObject.allGraphics[itm];
-											newListItem.image = ScriptUI.newImage(myCircleGreenFile);
+											newListItem[kListItemObject] = mySelectedObject.allGraphics[itm];
+											newListItem.image = myCircleGreenImage;
 										}
 									}
 								}
@@ -1022,14 +1167,28 @@ function displayPreferences() {
 	
 	for (var btn = 0; btn < kScopeOptions.length; btn++) {
 		var myButton = myScopeRadioGroup.add("radiobutton", undefined, localize(kScopeOptions[btn][1]));
-		myButton.value = (btn == kScopeActiveDoc);
+		if (myDocuments[myActiveDocument][kDocumentsProcessable]) {
+			myButton.value = (btn == kScopeActiveDoc);
+		} else {
+			myButton.value = (btn == kScopeAllDocs);
+		}
 		myButton.onClick = myScopeButtonClicked;
 		
-		if (btn == kScopeAllDocs) {
-			myButton.enabled = (arrayLength(myDocuments) > 1);
-		}
-		if (btn == kScopeSelectedImages) {
-			myButton.enabled = (myDocuments[myActiveDocument][kDocumentsObject].selection.length > 0)
+		switch (btn) {
+			case kScopeAllDocs:
+				myButton.enabled = (arrayLength(myDocuments) > 1);
+				break;
+			case kScopeActiveDoc:
+				myButton.enabled = myDocuments[myActiveDocument][kDocumentsProcessable];
+				break;
+			case kScopeSelectedPages:
+				myButton.enabled = myDocuments[myActiveDocument][kDocumentsProcessable];
+				break;
+			case kScopeSelectedImages:
+				myButton.enabled = (
+					(myDocuments[myActiveDocument][kDocumentsProcessable]) &&
+					(myDocuments[myActiveDocument][kDocumentsObject].selection.length > 0));
+				break;
 		}
 	}
 	
@@ -1046,52 +1205,51 @@ function displayPreferences() {
 		myIncludePasteboard.value = myPreferences[kPrefsIncludePasteboard];
 	}
 		
-	// Список элементов
+	// Список элементов выбранного диапазона (документы, страницы или выбранные картинки)
 	var myScopeItemsGroup = myScopeGroup.add("group");
 	with (myScopeItemsGroup) {
 		orientation = "column";
-		minimumSize = [180, 200];
+		alignment = ["right", "top"];
+		preferredSize = [170, 160];
+		maximumSize = [170, 160];
 		alignChildren = ["fill", "fill"];
-	}
 	
-	function listItemClicked(item) {
-		switch (myPreferences[kPrefsScope]) {
-			case kScopeAllDocs:
-				var mySelectedCount = 0;
-				for (var itm = 0; itm < myItemsList.items.length; itm++) {
-					if (myItemsList.items[itm].selected) {
-						if (myDocuments[myItemsList.items[itm][kListItemDocument]][kDocumentsLinksOutOfDate] != 0) {
-							myItemsList.items[itm].selected = false;
-						} else {
+		var myItemsList = add("listbox", undefined, undefined, {multiselect:true, numberOfColumns:1, showHeaders:false, columnWidths:[143]});
+		myItemsList.onClick = function(item) {
+			switch (myPreferences[kPrefsScope]) {
+				case kScopeAllDocs:
+					var mySelectedCount = 0;
+					for (var itm = 0; itm < myItemsList.items.length; itm++) {
+						if (myItemsList.items[itm].selected) {
+							if (!myDocuments[myItemsList.items[itm][kListItemObject]][kDocumentsProcessable]) {
+								myItemsList.items[itm].selected = false;
+							} else {
+								mySelectedCount++;
+							}
+						}
+					}
+					myFlagScopeIsValid = (mySelectedCount > 0);
+					break;
+				case kScopeActiveDoc:
+					myFlagScopeIsValid = myDocuments[myActiveDocument][kDocumentsProcessable];
+					break;
+				case kScopeSelectedPages:
+					var mySelectedCount = 0;
+					for (var itm = 0; itm < myItemsList.items.length; itm++) {
+						if (myItemsList.items[itm].selected) {
 							mySelectedCount++;
 						}
 					}
-				}
-				myFlagScopeIsValid = (mySelectedCount > 0);
-				break;
-			case kScopeActiveDoc:
-				myFlagScopeIsValid = (myDocuments[myActiveDocument][kDocumentsLinksOutOfDate] == 0);
-				break;
-			case kScopeSelectedPages:
-				var mySelectedCount = 0;
-				for (var itm = 0; itm < myItemsList.items.length; itm++) {
-					if (myItemsList.items[itm].selected) {
-						mySelectedCount++;
-					}
-				}
-				myFlagScopeIsValid = (mySelectedCount > 0);
-				break;
-			case kScopeSelectedImages:
-				//myFlagScopeIsValid = true;
-				break;
+					myFlagScopeIsValid = (mySelectedCount > 0);
+					break;
+				case kScopeSelectedImages:
+					//myFlagScopeIsValid = true;
+					break;
+			}
+			
+			myEnableInterfaceItems();
 		}
-		
-		myEnableInterfaceItems();
 	}
-	
-	var myItemsList = myScopeItemsGroup.add("listbox", undefined, undefined, {multiselect: true});
-	myItemsList.onClick = listItemClicked;
-	
 	
 	// Группа резервного копирования
 	with (myParametersGroup.add("panel", undefined, localize(msgBackup))) {
@@ -1139,35 +1297,233 @@ function displayPreferences() {
 		}
 	}
 	
+	// Группа списка картинок
+	var myImagesGroup = myUpperGroup.add("panel", undefined, localize(msgImagesToProcess));
+	with (myImagesGroup) {
+		orientation = "column";
+		alignChildren = ["fill", "bottom"];
+		preferredSize.width = 300;
+		margins = [10, 14, 10, 10];
+		
+		var myImagesList = myImagesGroup.add("listbox", undefined, undefined, {multiselect:true, numberOfColumns:4, showHeaders:true, columnTitles:["Name", "#", "3", "4"], columnWidths:[200, 30, 30, 30]});
+		myImagesList.alignment = ["fill", "fill"];
+		myImagesList.onChange = function () {
+			myImagePositionsList.removeAll();
+			debugPrintObject(myImagesList);
+			debugPrintObject(myImagesList.items);
+			if (myImagesList.selection == null) { return; }
+			if (myImagesList.selection.length > 1) { return; }
+			for (var lst = 0; lst < myImagesList.items.length; lst++) {
+				if (myImagesList.items[lst].selected) {
+					var myEntriesList = mySelectedGraphics[myImagesList.items[lst][kListItemObject]][kGraphicsObjectList];
+					for (var itm in myEntriesList) {
+						var newListItem = myImagePositionsList.add("item", myEntriesList[itm][kGraphicsParentDocument].name);
+						newListItem[kListItemObject] = myEntriesList[itm][kGraphicsObject];
+						newListItem.subItems[0].text = pageOfGraphic(myEntriesList[itm][kGraphicsObject]);
+					}
+				}
+			}
+		}
+		
+		var myImagePositionsList = myImagesGroup.add("listbox", undefined, undefined, {multiselect:false, numberOfColumns:4, showHeaders:true, columnTitles:["Document", "Page", "3", "4"], columnWidths:[200, 30, 30, 30]});
+		myImagePositionsList.preferredSize.height = 164;
+		myImagePositionsList.onDoubleClick = function () {
+			alert("Написать показ картинки");
+			/*
+			var myGraphic = myImagePositionsList.selection[kListItemObject];
+			debugPrintObject(myGraphic);
+			var myDocument = documentOfGraphic(myGraphic);
+			app.activeDocument = myDocument;
+			myDocument.layoutWindows[0].select(myGraphic);
+			*/
+		}
+	}
+	
+	// Отфильтруем картинки для обработки
+	function filterGraphics() {
+		
+		// проверка на попадание в указаный диапазон (все документы/только активный/выбранные страницы активного документа/выбранные картинки)
+		function myIsInScope(grc, itm) {
+			switch (myPreferences[kPrefsScope]) {
+				case kScopeAllDocs:
+					return true;
+					break;
+				case kScopeActiveDoc:
+					return true;
+					//myGraphics[grc][kGraphicsObjectList][itm];
+					break;
+				case kScopeSelectedPages:
+					var totalImages = 0;
+					for (var pge = 0; pge < myPages.length; pge++) {
+						totalImages += myPages[pge].allGraphics.length;
+					}
+					showStatus(undefined, undefined, 0, totalImages);
+					
+					for (var pge = 0; pge < myPages.length; pge++) {
+						for (var grc = 0; grc < myPages[pge].allGraphics.length; grc++) {
+							checkGraphic(myPages[pge].allGraphics[grc]);
+							if (myFlagStopExecution) { return false }
+						}
+					}
+					break;
+				case kScopeSelectedImages:
+					showStatus(undefined, undefined, 0, mySelection.length);
+					
+					for (var itm = 0; itm < mySelection.length; itm++) {
+						checkGraphic(mySelection[itm]);
+						if (myFlagStopExecution) { return false }
+					}
+					break;
+				default:
+					return false;
+			}
+		}
+		
+		function myIsSuitable(grc, itm) {
+			// проверка на "подходящесть" картинки под выбранные настройки
+			if ((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) {
+				// картинка внутри вылетов
+				if ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
+					// надо менять формат
+					return true;
+				}
+				if (mySelectedGraphics[grc][kGraphicsBitmap]) {
+					// ч/б картинка
+					if (!myPreferences[kPrefsProcessBitmaps]) { return false; }
+					if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+						// низкое dpi ч/б
+						mySelectedGraphics[grc][kGraphicsResample] = true;
+						return true;
+					}
+					if ((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+						// высокое dpi ч/б
+						mySelectedGraphics[grc][kGraphicsResample] = true;
+						return true;
+					}
+				} else {
+					// цветная картинка
+					if ((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+						// низкое dpi цвета
+						mySelectedGraphics[grc][kGraphicsResample] = true;
+						return true;
+					}
+					if ((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+						// высокое dpi цвета
+						mySelectedGraphics[grc][kGraphicsResample] = true;
+						return true;
+					}
+				}
+			}
+			
+			return false;
+		}
+		
+		// поехали
+		mySelectedGraphics = {};
+		mySelectedGraphics = myGraphics;
+		
+		// пройдёмся по всем вхождениям
+		for (var grc in mySelectedGraphics) {
+			for (var itm in mySelectedGraphics[grc][kGraphicsObjectList]) {
+				if (!myIsInScope(grc, itm) || !myIsSuitable(grc, itm)) {
+					// выкинем из списка неподходящие картинки
+					delete mySelectedGraphics[grc][kGraphicsObjectList][itm];
+				}
+			}
+			// выкинем пустые вхождения
+			if (arrayLength(mySelectedGraphics[grc][kGraphicsObjectList]) == 0) {
+				delete mySelectedGraphics[grc];
+			}
+		}
+						/*
+						// добавляем вхождение в mySelectedGraphics
+						var myLowestDPI = myGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI];
+						var myMaxPercentage = myGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage];
+						
+						// проверим, не попадался уже ли этот файл
+						if (grc in mySelectedGraphics) {
+							// попадался
+							if (myLowestDPI < mySelectedGraphics[grc][kGraphicsLowestDPI]) { mySelectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI }
+							if (myMaxPercentage > mySelectedGraphics[grc][kGraphicsMaxPercentage]) { mySelectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage }
+						} else {
+							// не попадался, добавим первое вхождение
+							mySelectedGraphics[grc] = myGraphics[grc];
+							mySelectedGraphics[grc][kGraphicsName] = myGraphics[grc][kGraphicsName];
+							mySelectedGraphics[grc][kGraphicsChangeFormat] = myGraphics[grc][kGraphicsChangeFormat];
+							mySelectedGraphics[grc][kGraphicsResample] = myGraphics[grc][kGraphicsResample];
+							mySelectedGraphics[grc][kGraphicsBitmap] = myGraphics[grc][kGraphicsBitmap];
+							mySelectedGraphics[grc][kGraphicsActualDPI] = myGraphics[grc][kGraphicsActualDPI];
+							mySelectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI;
+							mySelectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage;
+							mySelectedGraphics[grc][kGraphicsObjectList] = {};
+							mySelectedGraphics[grc][kGraphicsFileReadonly] = myGraphics[grc][kGraphicsFileReadonly];
+							mySelectedGraphics[grc][kGraphicsFolderReadonly] = myGraphics[grc][kGraphicsFolderReadonly];
+						}
+						
+						// добавим вхождение
+						mySelectedGraphics[grc][kGraphicsObjectList][itm] = {}
+						mySelectedGraphics[grc][kGraphicsObjectList][itm] = myGraphics[grc][kGraphicsObjectList][itm];
+						debugPrintObject(mySelectedGraphics[grc][kGraphicsObjectList]);
+						*/
+		$.writeln("here");
+		
+		
+		// наполним список картинок
+		myImagesList.removeAll();
+		for (var grc in mySelectedGraphics) {
+			var newListItem = myImagesList.add("item", mySelectedGraphics[grc].graphicsName);
+			newListItem[kListItemObject] = grc;
+			newListItem.subItems[0].text = arrayLength(mySelectedGraphics[grc][kGraphicsObjectList]);
+			myImagesList.selection = myImagesList.items.length - 1;
+		}
+		
+		return;
+		// ---------------------------------------------------------------------------------------------
+		
+		// есть что делать-то?
+		if (arrayLength(myGraphics) == 0) {
+			alert(localize(msgNoImagesToProcess));
+			return false;
+		}
+		
+		// убрать из списка документы без картинок под обработку
+		for (var doc in myDocuments) {
+			if (arrayLength(myDocuments[doc][kDocumentsBackupList]) == 0) { delete myDocuments[doc] }
+		}
+	}
+
 	// Группа элементов контроля (круто, да?)
-	var myControlGroup = myCommonGroup.add("group");
+	var myControlGroup = myDialog.add("group");
 	with (myControlGroup) {
 		orientation = "row";
 		alignment = ["fill", "top"];
 		
-		// Выбор локали
+		// выбор локали
 		var myLocaleDropdown = add("dropdownlist");
 		for (var itm = 0; itm < kLocalesList.length; itm++) {
 			var newListItem = myLocaleDropdown.add("item", kLocalesList[itm][1]);
-			newListItem[kListItemDocument] = kLocalesList[itm][0];
-			if (newListItem[kListItemDocument] == myPreferences[kPrefsLocale]) {
+			newListItem[kListItemObject] = kLocalesList[itm][0];
+			if (newListItem[kListItemObject] == myPreferences[kPrefsLocale]) {
 				myLocaleDropdown.selection = newListItem;
 			}
 		}
 		myLocaleDropdown.onChange = function () {
-			myPreferences[kPrefsLocale] = myLocaleDropdown.selection[kListItemDocument];
+			myPreferences[kPrefsLocale] = myLocaleDropdown.selection[kListItemObject];
 			$.locale = myPreferences[kPrefsLocale];
 			myDialog.close(3);
 		}
 		
-		// Группа кнопок диалогового окна
+		// группа кнопок диалогового окна
 		var myButtonsGroup = myControlGroup.add("group");
 		with (myButtonsGroup) {
 			orientation = "row";
 			alignment = ["right", "top"];
 			
-			var myCancelButton = add("button", undefined, localize(msgCancel), {name: "Cancel"});
-			var myOKButton = add("button", undefined, localize(msgOK), {name: "OK"});
+			var myCancelButton = add("button", undefined, localize(msgCancel), {name: "cancel"});
+			var myOKButton = add("button", undefined, localize(msgOK), {name: "ok"});
+			myOKButton.onClick = function () {
+				if (myOKButton.enabled) myDialog.close(1);
+			}
 		}
 	}
 	
@@ -1182,7 +1538,12 @@ function displayPreferences() {
 		myResampleMethodGroup.enabled = myFlagResample;
 		myBackupGroup.enabled = myDoBackup.value;
 		
-		myOKButton.enabled = myFlagScopeIsValid && (myFlagChangeFormat || myFlagResample);
+		filterGraphics();
+		
+		myOKButton.enabled = (
+			(myFlagScopeIsValid) &&
+			(arrayLength(mySelectedGraphics) > 0) &&
+			(myFlagChangeFormat || myFlagResample));
 	}
 	
 	// Сохранение настроек
@@ -1226,12 +1587,26 @@ function displayPreferences() {
 			return false;
 	}
 	
+	// Получить самое низкое разрешение и самый высокий процент для каждой картинки списка
+	for (var grc in mySelectedGraphics) {
+		var myFirstItem = true;
+		
+		for (var itm in mySelectedGraphics[grc][kGraphicsObjectList]) {
+			var myLowestDPI = mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI];
+			var myMaxPercentage = mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage];
+			
+			if ((myLowestDPI < mySelectedGraphics[grc][kGraphicsLowestDPI]) || myFirstItem) { mySelectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI }
+			if ((myMaxPercentage > mySelectedGraphics[grc][kGraphicsMaxPercentage]) || myFirstItem) { mySelectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage }
+			myFirstItem = false;
+		}
+	}
+	
 	// Сделать список обрабатываемого
 	switch (myPreferences[kPrefsScope]) {
 		case kScopeAllDocs:
 			for (var itm = 0; itm < myItemsList.items.length; itm++) {
 				if (!myItemsList.items[itm].selected) {
-					delete myDocuments[myItemsList.items[itm][kListItemDocument]];
+					delete myDocuments[myItemsList.items[itm][kListItemObject]];
 				}
 			}
 			break;
@@ -1244,182 +1619,17 @@ function displayPreferences() {
 		case kScopeSelectedPages:
 			for (var itm = 0; itm < myItemsList.items.length; itm++) {
 				if (myItemsList.items[itm].selected) {
-					myPages.push(myItemsList.items[itm][kListItemDocument]);
+					myPages.push(myItemsList.items[itm][kListItemObject]);
 				}
 			}
 			break;
 		case kScopeSelectedImages:
 			for (var itm = 0; itm < myItemsList.items.length; itm++) {
-				mySelection.push(myItemsList.items[itm][kListItemDocument]);
+				mySelection.push(myItemsList.items[itm][kListItemObject]);
 			}
 			break;
 		default:
 			return false;
-	}
-	
-	return true;
-}
-
-// Составим список картинок для обработки
-// ------------------------------------------------------
-function checkGraphics() {
-	
-	// Функция проверки
-	function checkGraphic(myGraphic) {
-		try {
-			showStatus(undefined, myGraphic.itemLink.name, undefined, undefined);
-		} catch (e) {
-			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
-		}
-		
-		var myDoProcess = true;
-		
-		// Линк в порядке?
-		if (!isGraphicLinkNormal(myGraphic)) myDoProcess = false;
-		
-		// Это растровая графика?
-		if (!isGraphicRaster(myGraphic)) myDoProcess = false;
-		
-		// Заглушка -- Линк не скопипастченный?
-		//if (isGraphicPasted(myGraphic)) myDoProcess = false;
-		
-		// Заглушка -- Линк не внедрённый?
-		//if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
-		
-		// Битмап?
-		if ((!myPreferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
-		
-		// Обрабатываем?
-		if (myDoProcess) {
-			// Проверим, не попадался уже ли этот файл
-			var myGraphicPath = myGraphic.itemLink.filePath;
-			if (myGraphicPath in myGraphics) {
-				// Попадался
-				if (lowestDPI(myGraphic) < myGraphics[myGraphicPath][kGraphicsLowestDPI]) { myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic) }
-				if (maxPercentage(myGraphic) > myGraphics[myGraphicPath][kGraphicsMaxPercentage]) { myGraphics[myGraphicPath][kGraphicsMaxPercentage] = maxPercentage(myGraphic) }
-				if (hasClippingPath(myGraphic)) { myGraphics[myGraphicPath][kGraphicsHasClippingPath] = true }
-				if (withinBleeds(myGraphic)) { myGraphics[myGraphicPath][kGraphicsWithinBleeds] = true }
-				myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
-			} else {
-				// Не попадался, добавим первое вхождение
-				myGraphics[myGraphicPath] = {};
-				myGraphics[myGraphicPath][kGraphicsName] = myGraphic.itemLink.name;
-				myGraphics[myGraphicPath][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsLowestDPI] = lowestDPI(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
-				myGraphics[myGraphicPath][kGraphicsObjectList] = {};
-				myGraphics[myGraphicPath][kGraphicsObjectList][myGraphic.id] = myGraphic;
-			}
-		}
-		
-		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
-	}
-	
-	// Пройтись по всем картинкам документа
-	function checkDocumentImages(myDocument) {
-		for (var grc = 0; grc < myDocument.allGraphics.length; grc++) {
-			checkGraphic(myDocument.allGraphics[grc]);
-			if (myFlagStopExecution) { return }
-		}
-	}
-	
-	showStatus(localize(msgCheckingImagesStatus), "", 0, 0);
-	
-	switch (myPreferences[kPrefsScope]) {
-		case kScopeAllDocs:
-			var totalImages = 0;
-			for (var doc in myDocuments) {
-				totalImages += myDocuments[doc][kDocumentsObject].allGraphics.length;
-			}
-			showStatus(undefined, undefined, 0, totalImages);
-			
-			for (var doc in myDocuments) {
-				checkDocumentImages(myDocuments[doc][kDocumentsObject]);
-			}
-			break;
-		case kScopeActiveDoc:
-			showStatus(undefined, undefined, 0, myDocuments[myActiveDocument][kDocumentsObject].allGraphics.length);
-			checkDocumentImages(myDocuments[myActiveDocument][kDocumentsObject]);
-			break;
-		case kScopeSelectedPages:
-			var totalImages = 0;
-			for (var pge = 0; pge < myPages.length; pge++) {
-				totalImages += myPages[pge].allGraphics.length;
-			}
-			showStatus(undefined, undefined, 0, totalImages);
-			
-			for (var pge = 0; pge < myPages.length; pge++) {
-				for (var grc = 0; grc < myPages[pge].allGraphics.length; grc++) {
-					checkGraphic(myPages[pge].allGraphics[grc]);
-					if (myFlagStopExecution) { return false }
-				}
-			}
-			break;
-		case kScopeSelectedImages:
-			showStatus(undefined, undefined, 0, mySelection.length);
-			
-			for (var itm = 0; itm < mySelection.length; itm++) {
-				checkGraphic(mySelection[itm]);
-				if (myFlagStopExecution) { return false }
-			}
-			break;
-		default:
-			return false;
-	}
-	
-	hideStatus();
-	
-	// Нажата отмена?
-	if (myFlagStopExecution) { return false }
-	
-	// Убрать из списка некриминальные картинки
-	for (var grc in myGraphics) {
-		var myDoProcess = false;
-		
-		if ((myPreferences[kPrefsIncludePasteboard]) || (myGraphics[grc][kGraphicsWithinBleeds])) {
-			if ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat])) { myDoProcess = true }
-			if (myGraphics[grc][kGraphicsBitmap]) {
-				if (myPreferences[kPrefsProcessBitmaps]) {
-					if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-					if ((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-				}
-			} else {
-				if ((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-				if ((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))) { myDoProcess = true }
-			}
-		}
-		
-		// Обрабатываем?
-		if (myDoProcess) {
-			// Добавим все вхождения картинки в подокументный список для бэкапа
-			for (var itm in myGraphics[grc][kGraphicsObjectList]) {
-				// получим документ этого вхождения
-				var myDocument = documentOfGraphic(myGraphics[grc][kGraphicsObjectList][itm]);
-				
-				// картинки ещё нет в списке бэкапа?
-				var myItemLink = myGraphics[grc][kGraphicsObjectList][itm].itemLink;
-				var myBackupList = myDocuments[myDocument.fullName][kDocumentsBackupList];
-				if (!(myItemLink.filePath in myBackupList)) {
-					myBackupList[myItemLink.filePath] = myItemLink;
-				}
-			}
-		} else {
-			delete myGraphics[grc];
-		}
-	}
-	
-	// Есть что делать-то?
-	if (arrayLength(myGraphics) == 0) {
-		alert(localize(msgNoImagesToProcess));
-		return false;
-	}
-	
-	// Убрать из списка документы без картинок под обработку
-	for (var doc in myDocuments) {
-		if (arrayLength(myDocuments[doc][kDocumentsBackupList]) == 0) { delete myDocuments[doc] }
 	}
 	
 	return true;
@@ -1475,12 +1685,25 @@ function backupImages() {
 		myStatusWindowGauge.value++;
 	}
 	
-	// Посчитаем файлы для резервного копирования
+	// Пройдёмся по всем картинкам
 	var backupFilesCount = 0;
-	for (var doc in myDocuments) {
-		backupFilesCount++;
-		backupFilesCount += arrayLength(myDocuments[doc][kDocumentsBackupList]);
+	for (var grc in mySelectedGraphics) {
+		// добавим все вхождения картинки в подокументный список для бэкапа
+		for (var itm in mySelectedGraphics[grc][kGraphicsObjectList]) {
+			// получим документ этого вхождения
+			var doc = mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument].fullName;
+			
+			// картинки ещё нет в списке бэкапа?
+			var myItemLink = mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink;
+			var myBackupList = myDocuments[doc][kDocumentsBackupList];
+			if (!(myItemLink.filePath in myBackupList)) {
+				// добавим
+				myBackupList[myItemLink.filePath] = myItemLink;
+				backupFilesCount++;
+			}
+		}
 	}
+	backupFilesCount += arrayLength(myDocuments);
 	
 	showStatus(localize(msgBackupStatus), "", 0, backupFilesCount);
 	
@@ -1501,7 +1724,7 @@ function backupImages() {
 function processImages() {
 	
 	// Функция для передачи в Фотошоп
-	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myResampleMethodCode, myTargetDPI, myMaxPercentage, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
+	function bridgeFunction(myFilePath, myNewFilePath, myDoResample, myResampleMethodCode, myActualDPI, myTargetDPI, myMaxPercentage, myChangeFormatCode, myMakeLayerFromBackground, myLeaveGraphicsOpen) {
 		var mySavedDisplayDialogs = app.displayDialogs;
 		app.displayDialogs = DialogModes.NO;
 		
@@ -1514,6 +1737,11 @@ function processImages() {
 			if (myDocument == null)
 				throw "Не удаётся открыть документ " + myFilePath;
 			
+			// Проверим, правильно ли InDesign определил разрешение
+			if (myActualDPI != myDocument.resolution) {
+				myMaxPercentage *= myDocument.resolution / myActualDPI ;
+			}
+			
 			// Разрешение
 			if (myDoResample) {
 				var myResampleMethod;
@@ -1522,14 +1750,14 @@ function processImages() {
 						myResampleMethod = ResampleMethod.BICUBIC;
 						break;
 					case 1:
-						if ((((myDocument.resolution / myTargetDPI) * 100) / myMaxPercentage) > 1) {
+						if (((myDocument.resolution / myTargetDPI) / myMaxPercentage) > 1) {
 							myResampleMethod = ResampleMethod.BICUBICSHARPER;
 						} else {
 							myResampleMethod = ResampleMethod.BICUBICSMOOTHER;
 						}
 						break;
 				}
-				myDocument.resizeImage(UnitValue(myMaxPercentage, "%"), UnitValue(myMaxPercentage, "%"), myTargetDPI, myResampleMethod);
+				myDocument.resizeImage(UnitValue(myMaxPercentage * 100, "%"), UnitValue(myMaxPercentage * 100, "%"), myTargetDPI, myResampleMethod);
 			}
 			
 			// Формат
@@ -1577,45 +1805,36 @@ function processImages() {
 	}
 	
 	// Поехали
-	showStatus(localize(msgProcessingImagesStatus), "", 0, arrayLength(myGraphics));
+	showStatus(localize(msgProcessingImagesStatus), "", 0, arrayLength(mySelectedGraphics));
 	
-	for (var grc in myGraphics) {
-		showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
+	for (var grc in mySelectedGraphics) {
+		showStatus(undefined, mySelectedGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (myGraphics[grc][kGraphicsChangeFormat]));
+		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat]));
 		
 		var myChangeFormatCode;
 		if (myDoChangeFormat) {
 			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF)) myChangeFormatCode = 1;
-			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD)) myChangeFormatCode = (myGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
+			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD)) myChangeFormatCode = (mySelectedGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
 			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD)) myChangeFormatCode = 2;
 		} else {
 			myChangeFormatCode = 0;
 		}
 		
-		var myDoResample;
-		var myTargetDPI;
-		if (myGraphics[grc][kGraphicsBitmap]) {
-			myDoResample = (
-				((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
-				((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
-			myTargetDPI = myPreferences[kPrefsBitmapTargetDPI];
-		} else {
-			myDoResample = (
-				((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(myGraphics[grc][kGraphicsLowestDPI]))) ||
-				((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(myGraphics[grc][kGraphicsLowestDPI]))));
-			myTargetDPI = myPreferences[kPrefsColorTargetDPI];
-		}
+		var myTargetDPI = (mySelectedGraphics[grc][kGraphicsBitmap] ? myPreferences[kPrefsBitmapTargetDPI] : myPreferences[kPrefsColorTargetDPI]);
 		
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
+			// ридонли не дописаный
+			//var myPath = (mySelectedGraphics[grc][kGraphicsFolderReadonly] ? DocumentOfGraphic() : myFile.path);
 			var myFile = new File(grc);
-			myNewFilePath = uniqueFileName(myFile.path, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + (myChangeFormatCode == 1 ? "tif" : "psd")));
-			myGraphics[grc][kGraphicsNewFilePath] = myNewFilePath;
-			myGraphics[grc][kGraphicsDoRelink] = true;
+			var myPath = myFile.path;
+			myNewFilePath = uniqueFileName(myPath, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + (myChangeFormatCode == 1 ? "tif" : "psd")));
+			mySelectedGraphics[grc][kGraphicsNewFilePath] = myNewFilePath;
+			mySelectedGraphics[grc][kGraphicsDoRelink] = true;
 		} else {
-			myGraphics[grc][kGraphicsDoRelink] = false;
+			mySelectedGraphics[grc][kGraphicsDoRelink] = false;
 		}
 		
 		// Запускаем скрипт в фотошопе
@@ -1674,10 +1893,11 @@ function processImages() {
 			myBT.body = bridgeFunction.toString() + "\r\rbridgeFunction(\"";
 			myBT.body += File.encode(grc) + "\", \"";
 			myBT.body += File.encode(myNewFilePath) + "\", ";
-			myBT.body += myDoResample + ", ";
+			myBT.body += mySelectedGraphics[grc][kGraphicsResample] + ", ";
 			myBT.body += myPreferences[kPrefsResampleMethod] + ", ";
+			myBT.body += mySelectedGraphics[grc][kGraphicsActualDPI] + ", ";
 			myBT.body += myTargetDPI + ", ";
-			myBT.body += myGraphics[grc][kGraphicsMaxPercentage] + ", ";
+			myBT.body += mySelectedGraphics[grc][kGraphicsMaxPercentage] + ", ";
 			myBT.body += myChangeFormatCode + ", ";
 			myBT.body += myPreferences[kPrefsMakeLayerFromBackground] + ", ";
 			myBT.body += myPreferences[kPrefsLeaveGraphicsOpen];
@@ -1749,24 +1969,24 @@ function processImages() {
 
 // Перецепить картинки
 // ------------------------------------------------------
-function relinkImages(myGraphic) {
+function relinkImages() {
 	// посчитать линки
 	var myTotalLinks = 0;
-	for (var grc in myGraphics) {
-		myTotalLinks += arrayLength(myGraphics[grc][kGraphicsObjectList]);
+	for (var grc in mySelectedGraphics) {
+		myTotalLinks += arrayLength(mySelectedGraphics[grc][kGraphicsObjectList]);
 	}
 	
 	showStatus(localize(msgRelinkingImagesStatus), "", 0, myTotalLinks);
 	
 	// Пройдёмся по всем картинкам
-	for (var grc in myGraphics) {
+	for (var grc in mySelectedGraphics) {
 		
 		// Пройдёмся по всем вхождениям
-		var myGraphicsList = myGraphics[grc][kGraphicsObjectList];
+		var myGraphicsList = mySelectedGraphics[grc][kGraphicsObjectList];
 		for (var itm in myGraphicsList) {
-			showStatus(undefined, myGraphics[grc][kGraphicsName], undefined, undefined);
+			showStatus(undefined, mySelectedGraphics[grc][kGraphicsName], undefined, undefined);
 			
-			var myDocument = documentOfGraphic(myGraphicsList[itm]);
+			var myDocument = myDocuments[myGraphicsList[itm][kGraphicsParentDocument].fullName][kDocumentsObject];
 			
 			// Сохраним reference pointы во всех окошках документа
 			var myReferencePoints = [];
@@ -1775,38 +1995,36 @@ function relinkImages(myGraphic) {
 				myDocument.layoutWindows[wnd].transformReferencePoint = AnchorPoint.TOP_LEFT_ANCHOR;
 			}
 			
-			// Вычислим и запомним новый scale
-			var myTargetHorizontalScale = myGraphicsList[itm].absoluteHorizontalScale * (100 / myGraphics[grc][kGraphicsMaxPercentage]);
-			var myTargetVerticalScale = myGraphicsList[itm].absoluteVerticalScale * (100 / myGraphics[grc][kGraphicsMaxPercentage]);
-			
 			// Убить clipping?
 			if ((myPreferences[kPrefsChangeFormat]) &&
 				(myPreferences[kPrefsChangeFormatTo] != kPrefsChangeFormatToTIFF) &&
 				(myPreferences[kPrefsRemoveClipping]) && 
-				(myGraphicsList[itm].clippingPath.clippingType != ClippingPathType.NONE)) {
-				myGraphicsList[itm].clippingPath.clippingType = ClippingPathType.NONE;
+				(myGraphicsList[itm][kGraphicsObject].clippingPath.clippingType != ClippingPathType.NONE)) {
+				myGraphicsList[itm][kGraphicsObject].clippingPath.clippingType = ClippingPathType.NONE;
 			}
 			
 			// Найдём линк в общедокументном списке линков
 			var myLink;
 			for (var dcl = 0; dcl < myDocument.links.length; dcl++) {
-				if (myGraphicsList[itm].itemLink.id == myDocument.links[dcl].id) {
+				if (myGraphicsList[itm][kGraphicsObject].itemLink.id == myDocument.links[dcl].id) {
 					myLink = myDocument.links[dcl];
 				}
 			}
 			
 			// Это релинк?
-			if (myGraphics[grc][kGraphicsDoRelink]) {
-				myLink.relink(myGraphics[grc][kGraphicsNewFilePath]);
+			if (mySelectedGraphics[grc][kGraphicsDoRelink]) {
+				myLink.relink(mySelectedGraphics[grc][kGraphicsNewFilePath]);
 			}
 			
 			// Обновляем
 			myLink.status;
-			myGraphicsList[itm] = myLink.update().parent;
+			myGraphicsList[itm][kGraphicsObject] = myLink.update().parent;
 			
 			// Скорректируем размер
-			myGraphicsList[itm].absoluteHorizontalScale = myTargetHorizontalScale;
-			myGraphicsList[itm].absoluteVerticalScale = myTargetVerticalScale;
+			if (mySelectedGraphics[grc][kGraphicsResample]) {
+				myGraphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (myGraphicsList[itm][kGraphicsObjectHScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+				myGraphicsList[itm][kGraphicsObject].absoluteVerticalScale = (myGraphicsList[itm][kGraphicsObjectVScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+			}
 			
 			// Восстановим reference pointы
 			for (var wnd = 0; wnd < myDocument.layoutWindows.length; wnd++) {
@@ -1819,7 +2037,7 @@ function relinkImages(myGraphic) {
 		}
 		
 		// Удалить исходник?
-		if ((myPreferences[kPrefsDeleteOriginals]) && (myGraphics[grc][kGraphicsDoRelink])) {
+		if ((myPreferences[kPrefsDeleteOriginals]) && (mySelectedGraphics[grc][kGraphicsDoRelink])) {
 			var myOriginalFile = new File(grc);
 			myOriginalFile.remove();
 		}
@@ -1969,13 +2187,23 @@ function isGraphicChangeFormat(myGraphic) {
 // Проверка цветной или серой картинки на низкое dpi
 // ------------------------------------------------------
 function isGraphicColorDPILow(myGraphicDPI) {
-	return (myGraphicDPI < (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
+	// всегда делаем ресэмпл при дельте == 0
+	if (myPreferences[kPrefsColorDelta] == 0) {
+		return true;
+	} else {
+		return (myGraphicDPI < (myPreferences[kPrefsColorTargetDPI] - myPreferences[kPrefsColorDelta]));
+	}
 }
 
 // Проверка цветной или серой картинки на высокое dpi
 // ------------------------------------------------------
 function isGraphicColorDPIHigh(myGraphicDPI) {
-	return (myGraphicDPI > (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
+	// всегда делаем ресэмпл при дельте == 0
+	if (myPreferences[kPrefsColorDelta] == 0) {
+		return true;
+	} else {
+		return (myGraphicDPI > (myPreferences[kPrefsColorTargetDPI] + myPreferences[kPrefsColorDelta]));
+	}
 }
 
 // Проверка битмап-картинки на низкое dpi
@@ -2001,8 +2229,8 @@ function lowestDPI(myGraphic) {
 // Получить самый высокий absolute scale
 // ------------------------------------------------------
 function maxPercentage(myGraphic) {
-	var myHorizontalPercent = Math.abs(myGraphic.absoluteHorizontalScale);
-	var myVerticalPercent = Math.abs(myGraphic.absoluteVerticalScale);
+	var myHorizontalPercent = Math.abs((myGraphic.absoluteHorizontalScale / 100) * (myGraphic.parent.absoluteHorizontalScale / 100));
+	var myVerticalPercent = Math.abs((myGraphic.absoluteVerticalScale / 100) * (myGraphic.parent.absoluteVerticalScale / 100));
 	return (myHorizontalPercent > myVerticalPercent ? myHorizontalPercent : myVerticalPercent);
 }
 
@@ -2021,6 +2249,17 @@ function documentOfGraphic(myGraphic) {
 	}
 	
 	return myParentDocument;
+}
+
+// Получить имя страницы картинки
+// ------------------------------------------------------
+function pageOfGraphic(myGraphic) {
+	var myParentDocument = myGraphic.parent;
+	while ((myParentDocument.reflect.name != "Page") && (myParentDocument.reflect.name != "Document")) {
+		myParentDocument = myParentDocument.parent;
+	}
+	
+	return (myParentDocument.reflect.name == "Page" ? myParentDocument.name : "PB");
 }
 
 // Размер dictionary
@@ -2054,7 +2293,19 @@ function uniqueFileName(myFolderName, myFileName) {
 	return myFile;
 }
 
-// Почистить путь от слешей
+// Проверим папку на readonly
+// ------------------------------------------------------
+function isFolderReadOnly(myFolder) {
+	if (!myFolders.hasOwnProperty(myFolder)) {
+		var myTestFile = new File(myFolder + "/.readonlytest");
+		myFolders[myFolder] = !myTestFile.open("w");
+		myTestFile.remove();
+	}
+	
+	return myFolders[myFolder];
+}
+
+// Почистить путь от слэшей
 // ------------------------------------------------------
 function cleanupPath(myPath) {
 	return myPath.replace(/[:]/g, "-");
