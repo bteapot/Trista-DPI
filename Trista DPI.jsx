@@ -169,10 +169,11 @@ var myTempFolder;
 var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
 
-var myDocuments = {};
+var myDocuments = new myDictionary();
+var myDocumentSelection = new myDictionary();
 var myGraphics = new myDictionary();
 var mySelectedGraphics = new myDictionary();
-var myFolders = {};
+var myFolders = new myDictionary();
 var myActiveDocument;
 
 var myFlagStopExecution = false;
@@ -591,7 +592,6 @@ function analyseGraphics() {
 		} catch (e) {
 			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
 		}
-		
 		var myDoProcess = true;
 		
 		// Линк в порядке?
@@ -672,6 +672,35 @@ function analyseGraphics() {
 		}
 	}
 	
+	// Составим список выделенных картинок
+	function parseObject(obj) {
+		// графика?
+		if (obj.reflect.name == "Image") {
+			myDocumentSelection[obj.id] = true;
+			return;
+		}
+		// содержит другие объекты?
+		if (obj.hasOwnProperty("allPageItems")) {
+			for (var sbj = 0; sbj < obj.allPageItems.length; sbj++) {
+				parseObject(obj.allPageItems[sbj]);
+			}
+		}
+		// содержит графику?
+		if (obj.hasOwnProperty("allGraphics")) {
+			for (var sbj = 0; sbj < obj.allGraphics.length; sbj++) {
+				parseObject(obj.allGraphics[sbj]);
+			}
+		}
+		// массив?
+		if (obj instanceof Array) {
+			for (var sbj = 0; sbj < obj.length; sbj++) {
+				parseObject(obj[sbj]);
+			};
+		}
+	}
+	
+	parseObject(myDocuments[myActiveDocument][kDocumentsObject].selection);
+	
 	hideStatus();
 	
 	// Нажата отмена?
@@ -689,8 +718,6 @@ function displayPreferences() {
 	// Флаги
 	var myFlagChangeFormat = false;
 	var myFlagResample = false;
-	var myFlagScopeIsValid = false;
-	
 	
 	// Константы
 	var myPanelWidth = 400;
@@ -1141,30 +1168,6 @@ function displayPreferences() {
 					case kScopeSelectedImages:
 						// Выбранные изображения
 						myScopeItemsGroup.enabled = false;
-						
-						function parseSelectedBranch(mySelectedObject) {
-							if (mySelectedObject.hasOwnProperty("allGraphics")) {
-								for (var itm = 0; itm < mySelectedObject.allGraphics.length; itm++) {
-									if (isGraphicRaster(mySelectedObject.allGraphics[itm])) {
-										
-										// заглушка для вставленных картинок
-										if (!isGraphicPasted(mySelectedObject.allGraphics[itm])) {
-											var newListItem = myItemsList.add("item", mySelectedObject.allGraphics[itm].itemLink.name);
-											newListItem[kListItemObject] = mySelectedObject.allGraphics[itm];
-											newListItem.image = myCircleGreenImage;
-										}
-									}
-								}
-							}
-							
-							if (mySelectedObject.hasOwnProperty("length")) {
-								for (var itm = 0; itm < mySelectedObject.length; itm++) {
-									parseSelectedBranch(mySelectedObject[itm]);
-								}
-							}
-						}
-						
-						parseSelectedBranch(myDocuments[myActiveDocument][kDocumentsObject].selection);
 						break;
 				}
 				myItemsList.onClick();
@@ -1176,7 +1179,13 @@ function displayPreferences() {
 	for (var btn = 0; btn < kScopeOptions.length; btn++) {
 		var myButton = myScopeRadioGroup.add("radiobutton", undefined, localize(kScopeOptions[btn][1]));
 		if (myDocuments[myActiveDocument][kDocumentsProcessable]) {
-			myButton.value = (btn == kScopeActiveDoc);
+			if (dictionaryLength(myDocumentSelection) > 0) {
+				// выбрать "выбранные"
+				myButton.value = (btn == kScopeSelectedImages);
+			} else {
+				// выбрать "активный документ"
+				myButton.value = (btn == kScopeActiveDoc);
+			}
 		} else {
 			myButton.value = (btn == kScopeAllDocs);
 		}
@@ -1195,7 +1204,7 @@ function displayPreferences() {
 			case kScopeSelectedImages:
 				myButton.enabled = (
 					(myDocuments[myActiveDocument][kDocumentsProcessable]) &&
-					(myDocuments[myActiveDocument][kDocumentsObject].selection.length > 0));
+					(dictionaryLength(myDocumentSelection) > 0));
 				break;
 		}
 	}
@@ -1209,6 +1218,7 @@ function displayPreferences() {
 		var myIncludePasteboard = add("checkbox", undefined, localize(msgProcessOffBleedImages));
 		myIncludePasteboard.onClick = function() {
 			myPreferences[kPrefsIncludePasteboard] = myIncludePasteboard.value;
+			filterGraphics();
 		}
 		myIncludePasteboard.value = myPreferences[kPrefsIncludePasteboard];
 	}
@@ -1236,10 +1246,8 @@ function displayPreferences() {
 							}
 						}
 					}
-					myFlagScopeIsValid = (mySelectedCount > 0);
 					break;
 				case kScopeActiveDoc:
-					myFlagScopeIsValid = myDocuments[myActiveDocument][kDocumentsProcessable];
 					break;
 				case kScopeSelectedPages:
 					var mySelectedCount = 0;
@@ -1248,10 +1256,8 @@ function displayPreferences() {
 							mySelectedCount++;
 						}
 					}
-					myFlagScopeIsValid = (mySelectedCount > 0);
 					break;
 				case kScopeSelectedImages:
-					//myFlagScopeIsValid = true;
 					break;
 			}
 			
@@ -1382,26 +1388,7 @@ function displayPreferences() {
 					if (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] != myActiveDocument) {
 						return false;
 					}
-					
-					function parseSelectedBranch(mySelectedObject) {
-						if (mySelectedObject.hasOwnProperty("allGraphics")) {
-							for (var sel = 0; sel < mySelectedObject.allGraphics.length; sel++) {
-								if (mySelectedObject.allGraphics[sel].id == mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].id) {
-									return true;
-								}
-							}
-						}
-						if (mySelectedObject.hasOwnProperty("length")) {
-							for (var sel = 0; sel < mySelectedObject.length; sel++) {
-								if (parseSelectedBranch(mySelectedObject[sel])) {
-									return true;
-								}
-							}
-						}
-						return false;
-					}
-					
-					return parseSelectedBranch(myDocuments[myActiveDocument][kDocumentsObject].selection);
+					return (itm in myDocumentSelection);
 				default:
 					return false;
 			}
@@ -1409,8 +1396,9 @@ function displayPreferences() {
 		
 		// проверка на "подходящесть" картинки под выбранные настройки
 		function myIsSuitable(grc, itm) {
-			if ((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) {
-				// картинка внутри вылетов
+			if (((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
+				(myPreferences[kPrefsScope] == kScopeSelectedImages)) {
+				// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
 				if ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
 					// надо менять формат
 					return true;
@@ -1572,12 +1560,6 @@ function displayPreferences() {
 		myBackupGroup.enabled = myDoBackup.value;
 		
 		filterGraphics();
-		/*
-		myOKButton.enabled = (
-			(myFlagScopeIsValid) &&
-			(dictionaryLength(mySelectedGraphics) > 0) &&
-			(myFlagChangeFormat || myFlagResample));
-		*/
 	}
 	
 	// Сохранение настроек
@@ -2306,22 +2288,41 @@ function pageOfGraphic(myGraphic) {
 	
 	// получить название разворота
 	function spreadName(mySpread) {
-		var name = "";
-		for (var pge = 0; pge < mySpread.pages.length; pge++) {
-			name = name + mySpread.pages[pge].name;
-			if (pge + 1 < mySpread.pages.length) {
-				name = name + "-";
+		var name = "PB:";
+		try {
+			for (var pge = 0; pge < mySpread.pages.length; pge++) {
+				name = name + mySpread.pages[pge].name;
+				if (pge + 1 < mySpread.pages.length) {
+					name = name + "-";
+				}
 			}
+			return name;
+		} catch (e) {
+			return "OFF";
 		}
-		return name;
 	}
 	
-	var myParentObject = myGraphic.parent;
-	while ((myParentObject.reflect.name != "Page") && (myParentObject.reflect.name != "Spread")) {
-		myParentObject = myParentObject.parent;
+	// получить название страницы
+	function getParentPage() {
+		var myParentObject = myGraphic.parent;
+		while ((myParentObject.reflect.name != "Page") && (myParentObject.reflect.name != "Spread") && (myParentObject.reflect.name != "Document")) {
+			myParentObject = myParentObject.parent;
+		}
+		
+		return (myParentObject.reflect.name == "Page" ? myParentObject.name : spreadName(myParentObject));
 	}
 	
-	return (myParentObject.reflect.name == "Page" ? myParentObject.name : "PB:" + spreadName(myParentObject));
+	if (myAppVersion >= 6) {
+		// CS5
+		try {
+			return myGraphic.parent.parentPage.name;
+		} catch (e) {
+			return getParentPage();
+		}
+	} else {
+		// до CS5
+		return getParentPage();
+	}
 }
 
 // Размер dictionary
