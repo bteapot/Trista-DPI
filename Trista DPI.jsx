@@ -171,7 +171,6 @@ var mySmallFont;
 var myHeaderColor = [0.1, 0.1, 0.1];
 
 var myDocuments = {};
-var myPages = [];
 var myGraphics = new myDictionary();
 var mySelectedGraphics = new myDictionary();
 var myFolders = {};
@@ -933,6 +932,7 @@ function displayPreferences() {
 				myColorTargetDPI.justify = "right";
 				myColorTargetDPI.onChange = function() {
 					myPreferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
+					filterGraphics();
 				}
 			}
 			
@@ -955,6 +955,7 @@ function displayPreferences() {
 				myColorDelta.justify = "right";
 				myColorDelta.onChange = function() {
 					myPreferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
+					filterGraphics();
 				}
 			}
 		}
@@ -1019,6 +1020,7 @@ function displayPreferences() {
 				myBitmapTargetDPI.justify = "right";
 				myBitmapTargetDPI.onChange = function() {
 					myPreferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
+					filterGraphics();
 				}
 			}
 			
@@ -1041,6 +1043,7 @@ function displayPreferences() {
 				myBitmapDelta.justify = "right";
 				myBitmapDelta.onChange = function() {
 					myPreferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
+					filterGraphics();
 				}
 			}
 		}
@@ -1459,8 +1462,10 @@ function displayPreferences() {
 			}
 		}
 		
-		// получим самое низкое разрешение и самый высокий процент для каждой картинки списка
+		// обобщим собранные данные по картинкам
 		for (var grc in mySelectedGraphics) {
+			
+			// получим самое низкое разрешение и самый высокий процент для каждой картинки списка
 			var myFirstItem = true;
 			
 			for (var itm in mySelectedGraphics[grc][kGraphicsObjectList]) {
@@ -1470,6 +1475,37 @@ function displayPreferences() {
 				if ((myLowestDPI < mySelectedGraphics[grc][kGraphicsLowestDPI]) || myFirstItem) { mySelectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI }
 				if ((myMaxPercentage > mySelectedGraphics[grc][kGraphicsMaxPercentage]) || myFirstItem) { mySelectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage }
 				myFirstItem = false;
+			}
+			
+			// выясним, необходим ли пересчёт разрешения при выбранных настройках
+			if (mySelectedGraphics[grc][kGraphicsBitmap]) {
+				// ч/б картинка
+				mySelectedGraphics[grc][kGraphicsResample] = (
+					(myPreferences[kPrefsProcessBitmaps]) && (
+						(
+							// низкое dpi ч/б?
+							(myPreferences[kPrefsBitmapUpsample]) &&
+							(isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsLowestDPI]))
+						) || (
+							// высокое dpi ч/б
+							(myPreferences[kPrefsBitmapDownsample]) &&
+							(isGraphicBitmapDPIHigh(mySelectedGraphics[grc][kGraphicsLowestDPI]))
+						)
+					)
+				);
+			} else {
+				// цветная картинка
+				mySelectedGraphics[grc][kGraphicsResample] = (
+					(
+						// низкое dpi цвета
+						(myPreferences[kPrefsColorUpsample]) &&
+						(isGraphicColorDPILow(mySelectedGraphics[grc][kGraphicsLowestDPI]))
+					) || (
+						// высокое dpi цвета
+						(myPreferences[kPrefsColorDownsample]) &&
+						(isGraphicColorDPIHigh(mySelectedGraphics[grc][kGraphicsLowestDPI]))
+					)
+				);
 			}
 		}
 		
@@ -1580,46 +1616,47 @@ function displayPreferences() {
 			return false;
 	}
 	
-	// Сделать список обрабатываемого
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
-	// ====================================================================================================================
+	// Убрать из списка на обработку невыбранные пользователем картинки
+	for (var grc in mySelectedGraphics) {
+		var isSelected = false;
+		for (sel = 0; sel < myImagesList.selection.length; sel++) {
+			if (myImagesList.selection[sel][kListItemObject] == grc) {
+				isSelected = true;
+				break;
+			}
+		}
+		if (!isSelected) {
+			delete mySelectedGraphics[grc];
+		}
+	}
+	
+	// Убрать из списка не пошедшие в обработку документы
 	switch (myPreferences[kPrefsScope]) {
 		case kScopeAllDocs:
-			for (var itm = 0; itm < myItemsList.items.length; itm++) {
-				if (!myItemsList.items[itm].selected) {
-					delete myDocuments[myItemsList.items[itm][kListItemObject]];
+			for (var doc in myDocuments) {
+				var isSelected = false;
+				for (var grc in mySelectedGraphics) {
+					for (var itm in mySelectedGraphics[grc][kGraphicsObjectList]) {
+						if (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] == doc) {
+							isSelected = true;
+							break;
+						}
+					}
+					if (isSelected) {
+						break;
+					}
+				}
+				if (!isSelected) {
+					delete myDocuments[doc];
 				}
 			}
 			break;
 		case kScopeActiveDoc:
+		case kScopeSelectedPages:
+		case kScopeSelectedImages:
 			for (var doc in myDocuments) {
 				if (doc != myActiveDocument)
 					delete myDocuments[doc];
-			}
-			break;
-		case kScopeSelectedPages:
-			for (var itm = 0; itm < myItemsList.items.length; itm++) {
-				if (myItemsList.items[itm].selected) {
-					myPages.push(myItemsList.items[itm][kListItemObject]);
-				}
-			}
-			break;
-		case kScopeSelectedImages:
-			for (var itm = 0; itm < myItemsList.items.length; itm++) {
-				//mySelection.push(myItemsList.items[itm][kListItemObject]);
 			}
 			break;
 		default:
@@ -1629,7 +1666,7 @@ function displayPreferences() {
 	return true;
 }
 
-// Сохраним оригиналы картинок
+// Сохраним оригиналы картинок и документов. Бэкап, короче.
 // ------------------------------------------------------
 function backupImages() {
 	// Надо?
@@ -1881,6 +1918,9 @@ function processImages() {
 					return false;
 				}
 			}
+			
+			$.writeln("resample: " + (mySelectedGraphics[grc][kGraphicsResample] ? "Y" : "N") + ", maxpercent: " + mySelectedGraphics[grc][kGraphicsMaxPercentage].toFixed(2) + ", actualppi: " + fillZeros(mySelectedGraphics[grc][kGraphicsActualDPI]));
+			
 			
 			var myBT = new BridgeTalk;
 			myBT.target = myPhotoshop;
