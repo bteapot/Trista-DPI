@@ -699,7 +699,9 @@ function analyseGraphics() {
 		}
 	}
 	
-	parseObject(myDocuments[myActiveDocument][kDocumentsObject].selection);
+	if (myDocuments[myActiveDocument][kDocumentsObject].selection != null) {
+		parseObject(myDocuments[myActiveDocument][kDocumentsObject].selection);
+	}
 	
 	hideStatus();
 	
@@ -1668,7 +1670,7 @@ function backupImages() {
 		
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
-		var myBackupFolderName = cleanupPath(File.decode(myDocument.fullName.name) + "-" + myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2));
+		var myBackupFolderName = cleanupPath(myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2)) + "-" + File.decode(myDocument.fullName.name);
 		var myBackupFolder = new Folder(Folder.decode(myPreferences[kPrefsBackupFolder]) + myBackupFolderName);
 		
 		if (!myBackupFolder.create()) {
@@ -2095,7 +2097,12 @@ function documentID(myDocument) {
 		return myDocument.id;
 	} else {
 		// не старше (чёрт!)
-		return myDocument.fullName.fullName;
+		try {
+			return myDocument.fullName.fullName;
+		} catch (e) {
+			// несохранённый документ (чёрт, чёрт!)
+			return;
+		}
 	}
 }
 
