@@ -1,5 +1,4 @@
-﻿//
-// Пакетная обработка растровых изображений в документах Adobe InDesign
+﻿// Пакетная обработка растровых изображений в документах Adobe InDesign
 //
 // Денис Либит
 // Студия КолорБокс
@@ -1326,8 +1325,11 @@ function displayPreferences() {
 				for (var itm in myEntriesList) {
 					var newListItem = myImagePositionsList.add("item", myDocuments[myEntriesList[itm][kGraphicsParentDocument]][kDocumentsName]);
 					newListItem[kListItemObject] = myEntriesList[itm][kGraphicsObject];
-					newListItem.subItems[0].text = myEntriesList[itm][kGraphicsParentPage];
-					newListItem.subItems[1].text = fillSpaces(Math.round(myEntriesList[itm][kGraphicsLowestDPI]), 5);
+					// CS3 не умеет делать многоколоночный список
+					if (myAppVersion > 5) {
+						newListItem.subItems[0].text = myEntriesList[itm][kGraphicsParentPage];
+						newListItem.subItems[1].text = fillSpaces(Math.round(myEntriesList[itm][kGraphicsLowestDPI]), 5);
+					}
 				}
 			}
 			myOKButton.enabled = ((myImagesList.selection != null) && (myImagesList.selection.length > 0));
@@ -1513,8 +1515,11 @@ function displayPreferences() {
 		for (var grc in mySelectedGraphics) {
 			var newListItem = myImagesList.add("item", mySelectedGraphics[grc].graphicsName);
 			newListItem[kListItemObject] = grc;
-			newListItem.subItems[0].text = fillSpaces(dictionaryLength(mySelectedGraphics[grc][kGraphicsObjectList]), 2);
-			newListItem.subItems[1].text = fillSpaces(Math.round(mySelectedGraphics[grc][kGraphicsLowestDPI]), 5);
+			// CS3 не умеет делать многоколоночный список
+			if (myAppVersion > 5) {
+				newListItem.subItems[0].text = fillSpaces(dictionaryLength(mySelectedGraphics[grc][kGraphicsObjectList]), 2);
+				newListItem.subItems[1].text = fillSpaces(Math.round(mySelectedGraphics[grc][kGraphicsLowestDPI]), 5);
+			}
 			myImagesList.selection = myImagesList.items.length - 1;
 		}
 	}
@@ -1918,9 +1923,6 @@ function processImages() {
 					return false;
 				}
 			}
-			
-			$.writeln("resample: " + (mySelectedGraphics[grc][kGraphicsResample] ? "Y" : "N") + ", maxpercent: " + mySelectedGraphics[grc][kGraphicsMaxPercentage].toFixed(2) + ", actualppi: " + fillZeros(mySelectedGraphics[grc][kGraphicsActualDPI]));
-			
 			
 			var myBT = new BridgeTalk;
 			myBT.target = myPhotoshop;
