@@ -31,6 +31,9 @@ Trista DPI *Русский*
 ### Разрешение
 
 Изображения Black and White (Bitmap) обрабатываются отдельно от Color и Grayscale. Настройки желаемого разрешения и дельты (минимального отличия разрешения от желаемого), соответственно, также задаются отдельно. По-умолчанию это 300 dpi для Color и Grayscale, и 1200 dpi для Bitmap.
+При дельте равной нулю, изображение обрабатывается безусловно.
+
+При рассчёте необходимого разрешения учитываются параметры трансформации всех вхождений изображения.
 
 Можно выбрать метод изменения размера изображений:
 
@@ -45,6 +48,11 @@ Trista DPI *Русский*
 * **Выбранные изображения** - в обработку идут только выбранные в InDesign изображения активного документа.
 
 Изображения за пределами вылетов можно обрабатывать или игнорировать.
+
+### Список изображений
+
+В обработку идут только изображения, выбранные в этом списке.
+При выделении только одного изображения показывается список документов и номера полос, на которых выделенное изображение присутствует.
 
 ### Резервное копирование
 
@@ -86,6 +94,9 @@ Original images can be removed.
 ### Resolution
 
 Black and White (Bitmap) graphics processed separately from Color and Grayscale. Target resolution and delta (minimal difference from target) settings are also separated. By default it's a 300 dpi for Color and Grayscale, and 1200 dpi for Bitmap.
+When the delta is zero, the image is processed unconditionally.
+
+Transformation parameters of every image's occurrence are considered when calculating target resolution.
 
 Image resampling method can be choosen from:
 
@@ -100,6 +111,11 @@ Image resampling method can be choosen from:
 * **Selected images** - only selected in InDesign images will be processed.
 
 Images that are off-bleeds can be processed or ignored.
+
+### Images list
+
+Only images selected in this list will be processed.
+When only one image is selected, all its occurences are listed with corresponding document name and page number.
 
 ### Backup
 
