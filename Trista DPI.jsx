@@ -1670,7 +1670,14 @@ function backupImages() {
 		
 		// Сделаем папку для бэкапа
 		var myDate = new Date();
-		var myBackupFolderName = cleanupPath(myDate.getFullYear() + "-" + fillZeros(myDate.getMonth()+1, 2) + "-" + fillZeros(myDate.getDate(), 2) + "-" + fillZeros(myDate.getHours(), 2) + fillZeros(myDate.getMinutes(), 2) + fillZeros(myDate.getSeconds(), 2)) + "-" + File.decode(myDocument.fullName.name);
+		var myBackupFolderName = cleanupPath(
+			File.decode(myDocument.fullName.name) + "-" + 
+			myDate.getFullYear() + "-" + 
+			fillZeros(myDate.getMonth()+1, 2) + "-" + 
+			fillZeros(myDate.getDate(), 2) + "-" + 
+			fillZeros(myDate.getHours(), 2) + 
+			fillZeros(myDate.getMinutes(), 2) + 
+			fillZeros(myDate.getSeconds(), 2));
 		var myBackupFolder = new Folder(Folder.decode(myPreferences[kPrefsBackupFolder]) + myBackupFolderName);
 		
 		if (!myBackupFolder.create()) {
