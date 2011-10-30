@@ -1437,6 +1437,7 @@ function displayPreferences() {
 		}
 		
 		// поехали
+		myImagesList.selection = null;
 		myImagesList.removeAll();
 		mySelectedGraphics = cloneDictionary(myGraphics);
 		
@@ -1475,7 +1476,7 @@ function displayPreferences() {
 				mySelectedGraphics[grc][kGraphicsResample] = (
 					(myPreferences[kPrefsProcessBitmaps]) && (
 						(
-							// низкое dpi ч/б?
+							// низкое dpi ч/б
 							(myPreferences[kPrefsBitmapUpsample]) &&
 							(isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsLowestDPI]))
 						) || (
@@ -1510,8 +1511,8 @@ function displayPreferences() {
 				newListItem.subItems[0].text = fillSpaces(dictionaryLength(mySelectedGraphics[grc][kGraphicsObjectList]), 2);
 				newListItem.subItems[1].text = fillSpaces(Math.round(mySelectedGraphics[grc][kGraphicsLowestDPI]), 5);
 			}
-			myImagesList.selection = myImagesList.items.length - 1;
 		}
+		myImagesList.selection = myImagesList.items;
 	}
 
 	// Группа элементов контроля (круто, да?)
