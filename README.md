@@ -1,7 +1,7 @@
-* Русский
-* English
+* [Русский](#lang_rus)
+* [English](#lang_eng)
 
-Trista DPI *Русский*
+<a name="lang_rus"><a>Trista DPI
 ====================
 
 Назначение
@@ -64,7 +64,7 @@ Trista DPI *Русский*
 
 Файл со скриптом (`Trista DPI.jsx`) положить в папку `Scripts Panel`. Открыть её можно прямо из InDesign: в палитре `Scripts` щёлкнуть правой кнопкой по папке `User` и сказать `Reveal in Finder` на Маке, или `Reveal In Explorer` под Windows.
 
-Trista DPI *English*
+<a name="lang_eng"><a>Trista DPI
 ====================
 
 Purpose
