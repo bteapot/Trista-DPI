@@ -49,6 +49,8 @@
 
 Изображения за пределами вылетов можно обрабатывать или игнорировать.
 
+Изображения на мастерах из обработки исключаются.
+
 ### Список изображений
 
 В обработку идут только изображения, выбранные в этом списке.
@@ -111,6 +113,8 @@ Image resampling method can be choosen from:
 * **Selected images** - only selected in InDesign images will be processed.
 
 Images that are off-bleeds can be processed or ignored.
+
+Images on master pages are always ignored.
 
 ### Images list
 

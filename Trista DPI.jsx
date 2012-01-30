@@ -229,6 +229,7 @@ const kGraphicsActualDPI = "graphicsActualDPI";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
 const kGraphicsMaxPercentage = "graphicsMaxPercentage";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
+const kGraphicsOnMaster = "graphicsOnMaster";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
 const kGraphicsObjectList = "graphicsObjectList";
 const kGraphicsObject = "graphicsObject";
@@ -622,6 +623,7 @@ function analyseGraphics() {
 				myGraphics[grc][kGraphicsResample] = false;
 				myGraphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
 				myGraphics[grc][kGraphicsActualDPI] = myGraphic.actualPpi[0];
+				myGraphics[grc][kGraphicsOnMaster] = false;
 				myGraphics[grc][kGraphicsObjectList] = new myDictionary();
 				
 				// Проверка read-only
@@ -637,12 +639,17 @@ function analyseGraphics() {
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject] = myGraphic;
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentID(documentOfGraphic(myGraphic));
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentPage] = pageOfGraphic(myGraphic);
-			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = withinBleeds(myGraphic);
+			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = isGraphicWithinBleeds(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI] = lowestDPI(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectHScale] = (myGraphic.absoluteFlip == Flip.HORIZONTAL ? -1 : 1) * myGraphic.absoluteHorizontalScale / 100;
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectVScale] = (myGraphic.absoluteFlip == Flip.VERTICAL ? -1 : 1) * myGraphic.absoluteVerticalScale / 100;
+			
+			// Картинка на мастере?
+			if (isGraphicOnMaster(myGraphic)) {
+				myGraphics[grc][kGraphicsOnMaster] = true;
+			}
 		}
 		
 		showStatus(undefined, undefined, myStatusWindowGauge.value + 1, undefined);
@@ -1398,37 +1405,40 @@ function displayPreferences() {
 		
 		// проверка на "подходящесть" картинки под выбранные настройки
 		function myIsSuitable(grc, itm) {
-			if (((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
-				(myPreferences[kPrefsScope] == kScopeSelectedImages)) {
-				// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
-				if ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
-					// надо менять формат
-					return true;
-				}
-				if (mySelectedGraphics[grc][kGraphicsBitmap]) {
-					// ч/б картинка
-					if (!myPreferences[kPrefsProcessBitmaps]) { return false; }
-					if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-						// низкое dpi ч/б
-						mySelectedGraphics[grc][kGraphicsResample] = true;
+			if (!mySelectedGraphics[grc][kGraphicsOnMaster]) {
+				// картинка не на мастере
+				if (((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
+					(myPreferences[kPrefsScope] == kScopeSelectedImages)) {
+					// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
+					if ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
+						// надо менять формат
 						return true;
 					}
-					if ((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-						// высокое dpi ч/б
-						mySelectedGraphics[grc][kGraphicsResample] = true;
-						return true;
-					}
-				} else {
-					// цветная картинка
-					if ((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-						// низкое dpi цвета
-						mySelectedGraphics[grc][kGraphicsResample] = true;
-						return true;
-					}
-					if ((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-						// высокое dpi цвета
-						mySelectedGraphics[grc][kGraphicsResample] = true;
-						return true;
+					if (mySelectedGraphics[grc][kGraphicsBitmap]) {
+						// ч/б картинка
+						if (!myPreferences[kPrefsProcessBitmaps]) { return false; }
+						if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+							// низкое dpi ч/б
+							mySelectedGraphics[grc][kGraphicsResample] = true;
+							return true;
+						}
+						if ((myPreferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+							// высокое dpi ч/б
+							mySelectedGraphics[grc][kGraphicsResample] = true;
+							return true;
+						}
+					} else {
+						// цветная картинка
+						if ((myPreferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+							// низкое dpi цвета
+							mySelectedGraphics[grc][kGraphicsResample] = true;
+							return true;
+						}
+						if ((myPreferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+							// высокое dpi цвета
+							mySelectedGraphics[grc][kGraphicsResample] = true;
+							return true;
+						}
 					}
 				}
 			}
@@ -1506,6 +1516,7 @@ function displayPreferences() {
 		for (var grc in mySelectedGraphics) {
 			var newListItem = myImagesList.add("item", mySelectedGraphics[grc].graphicsName);
 			newListItem[kListItemObject] = grc;
+			newListItem.image = (mySelectedGraphics[grc][kGraphicsFileReadonly] || mySelectedGraphics[grc][kGraphicsFolderReadonly] ? myCircleRedImage : myCircleGreenImage);
 			// CS3 не умеет делать многоколоночный список
 			if (myAppVersion > 5) {
 				newListItem.subItems[0].text = fillSpaces(dictionaryLength(mySelectedGraphics[grc][kGraphicsObjectList]), 2);
@@ -2114,9 +2125,30 @@ function documentID(myDocument) {
 	}
 }
 
+// Картинка на мастере?
+// ------------------------------------------------------
+function isGraphicOnMaster(myGraphic) {
+	// Получим документ этой картинки
+	var myDocument = documentOfGraphic(myGraphic);
+	
+	// Попробуем найти мастер, на котором лежит эта картинка
+	var mySpread;
+	var myOnMaster = false;
+	for (var spr = 0; spr < myDocument.masterSpreads.length; spr++) {
+		for (var grc = 0; grc < myDocument.masterSpreads[spr].allGraphics.length; grc++) {
+			if (myGraphic.id == myDocument.masterSpreads[spr].allGraphics[grc].id) {
+				myOnMaster = true;
+				break;
+			}
+		}
+	}
+	
+	return myOnMaster;
+}
+
 // Лежит ли картинка на pasteboard
 // ------------------------------------------------------
-function withinBleeds(myGraphic) {
+function isGraphicWithinBleeds(myGraphic) {
 	// Уплыла по тексту в оверсет?
 	try { myGraphic.visibleBounds } catch (e) { return false };
 	
@@ -2130,6 +2162,19 @@ function withinBleeds(myGraphic) {
 			if (myGraphic.id == myDocument.spreads[spr].allGraphics[grc].id) {
 				mySpread = myDocument.spreads[spr];
 				break;
+			}
+		}
+	}
+	
+	// Разворот не найден?
+	if (mySpread == undefined) {
+		// Картинка на мастере
+		for (var spr = 0; spr < myDocument.masterSpreads.length; spr++) {
+			for (var grc = 0; grc < myDocument.masterSpreads[spr].allGraphics.length; grc++) {
+				if (myGraphic.id == myDocument.masterSpreads[spr].allGraphics[grc].id) {
+					mySpread = myDocument.masterSpreads[spr];
+					break;
+				}
 			}
 		}
 	}
