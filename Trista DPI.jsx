@@ -67,24 +67,24 @@ const msgLeaveImagesOpen = {
 const msgFormatOfImages = {
 	ru: "Формат файлов",
 	en: "Format of image files" };
-const msgResaveJPEGInFormat = {
-	ru: "Пересохранять JPEG, PNG и т.п. в формате:",
-	en: "Resave JPEG, PNG etc. with format:" };
-const msgTIFF = {
-	ru: "TIFF",
-	en: "TIFF" };
-const msgTIFFAndPSD = {
-	ru: "TIFF, с обтравкой в PSD",
-	en: "TIFF, with clipping to PSD" };
-const msgPSD = {
-	ru: "PSD",
-	en: "PSD" };
+const msgChangeFormatOfNone = {
+	ru: "Не изменять формат файлов",
+	en: "Do not change format of files" };
+const msgChangeFormatOfWrong = {
+	ru: "Пересохранять JPEG, PNG и т.п.",
+	en: "Change format of JPEG, PNG etc." };
+const msgChangeFormatOfAll = {
+	ru: "Пересохранить все файлы",
+	en: "Change format of all files" };
 const msgBackgroundLayerToNormalLayer = {
 	ru: "Оторвать слой от фона",
 	en: "Background layer to normal layer" };
 const msgRemoveClipping = {
 	ru: "Убрать обтравку",
 	en: "Remove clipping" };
+const msgProcessPhotoshopEPS = {
+	ru: "Обрабатывать файлы Photoshop EPS",
+	en: "Process Photoshop EPS files" };
 const msgRemoveSourceImages = {
 	ru: "Удалять оригиналы изображений",
 	en: "Remove source images" };
@@ -178,19 +178,21 @@ var myActiveDocument;
 
 var myFlagStopExecution = false;
 var myFlagRestart;
+var myFlagEPSScanned = false;
 
 // Константы
 const kPrefsLocale = "locale";
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
-const kPrefsChangeFormat = "changeFormat";
+const kPrefsChangeFormatOf = "changeFormat";
+const kPrefsChangeFormatOfNone = "changeFormatOfNone";
+const kPrefsChangeFormatOfWrong = "changeFormatOfWrong";
+const kPrefsChangeFormatOfAll = "changeFormatOfAll";
 const kPrefsChangeFormatTo = "changeFormatTo";
-const kPrefsChangeFormatToTIFF = "changeFormatToTIFF";
-const kPrefsChangeFormatToTIFFAndPSD = "changeFormatToTIFFAndPSD";
-const kPrefsChangeFormatToPSD = "changeFormatToPSD";
 const kPrefsMakeLayerFromBackground = "makeLayerFromBackground";
 const kPrefsRemoveClipping = "removeClipping";
 const kPrefsDeleteOriginals = "deleteOriginals";
+const kPrefsProcessPhotoshopEPS = "processPhotoshopEPS";
 const kPrefsScope = "scope";
 const kPrefsIncludePasteboard = "includePasteboard";
 const kPrefsColorTargetDPI = "colorTargetDPI";
@@ -224,6 +226,7 @@ const kGraphicsFolderReadonly = "graphicsFolderReadonly";
 const kGraphicsDoRelink = "graphicsDoRelink";
 const kGraphicsChangeFormat = "graphicsChangeFormat";
 const kGraphicsResample = "graphicsResample";
+const kGraphicsPhotoshopEPS = "graphicsPhotoshopEPS";
 const kGraphicsBitmap = "graphicsBitmap";
 const kGraphicsActualDPI = "graphicsActualDPI";
 const kGraphicsLowestDPI = "graphicsLowestDPI";
@@ -269,6 +272,20 @@ const kScopeOptions = [
 	[kScopeSelectedImages, {
 		ru: "Выбранные изображения",
 		en: "Selected images" }]];
+
+const kChangeFormatToTIFF = 0;
+const kChangeFormatToTIFFAndPSD = 1;
+const kChangeFormatToPSD = 2;
+const kChangeFormatToOptions = [
+	[kChangeFormatToTIFF, {
+		ru: "Сохранять как TIFF",
+		en: "Save as TIFF" }],
+	[kChangeFormatToTIFFAndPSD, {
+		ru: "Сохранять как TIFF, с обтравкой в PSD",
+		en: "Save as TIFF, with clipping to PSD" }],
+	[kChangeFormatToPSD, {
+		ru: "Сохранять как PSD",
+		en: "Save as PSD" }]];
 
 var myAppSettingsPreserveBounds;
 
@@ -331,11 +348,12 @@ function initialSettings() {
 	myPreferences[kPrefsProcessBitmaps] = false;
 	myPreferences[kPrefsLeaveGraphicsOpen] = false;
 	
-	myPreferences[kPrefsChangeFormat] = true;
-	myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
+	myPreferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfWrong;
+	myPreferences[kPrefsChangeFormatTo] = kChangeFormatToTIFFAndPSD;
 	myPreferences[kPrefsMakeLayerFromBackground] = false;
 	myPreferences[kPrefsRemoveClipping] = true;
 	myPreferences[kPrefsDeleteOriginals] = true;
+	myPreferences[kPrefsProcessPhotoshopEPS] = false;
 	
 	myPreferences[kPrefsScope] = kScopeActiveDoc;
 	myPreferences[kPrefsIncludePasteboard] = false;
@@ -593,13 +611,26 @@ function analyseGraphics() {
 		} catch (e) {
 			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
 		}
+		
 		var myDoProcess = true;
+		var myIsPhotoshopEPS = false;
 		
 		// Линк в порядке?
 		if (!isGraphicLinkNormal(myGraphic)) myDoProcess = false;
 		
-		// Это векторная графика?
-		if (!isGraphicRaster(myGraphic)) myDoProcess = false;
+		// Это не растр?
+		if (!isGraphicRaster(myGraphic)) {
+			// Обрабатываем фотошоповские EPSы?
+			if (myPreferences[kPrefsProcessPhotoshopEPS]) {
+				if (isGraphicPhotoshopEPS(myGraphic)) {
+					myIsPhotoshopEPS = true;
+				} else {
+					myDoProcess = false;
+				}
+			} else {
+				myDoProcess = false;
+			}
+		}
 		
 		// Заглушка -- Линк не скопипастченный?
 		//if (isGraphicPasted(myGraphic)) myDoProcess = false;
@@ -621,8 +652,9 @@ function analyseGraphics() {
 				myGraphics[grc][kGraphicsName] = myGraphic.itemLink.name;
 				myGraphics[grc][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
 				myGraphics[grc][kGraphicsResample] = false;
+				myGraphics[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
 				myGraphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
-				myGraphics[grc][kGraphicsActualDPI] = myGraphic.actualPpi[0];
+				myGraphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
 				myGraphics[grc][kGraphicsOnMaster] = false;
 				myGraphics[grc][kGraphicsObjectList] = new myDictionary();
 				
@@ -657,6 +689,9 @@ function analyseGraphics() {
 	
 	// Уже сделано?
 	if (dictionaryLength(myGraphics) > 0) return true;
+	
+	// Сканируем EPSы?
+	if (myPreferences[kPrefsProcessPhotoshopEPS]) myFlagEPSScanned = true;
 	
 	showStatus(localize(msgCheckingImagesStatus), "", 0, 0);
 	
@@ -815,7 +850,7 @@ function displayPreferences() {
 		var myProcessBitmaps = add("checkbox", undefined, localize(msgProcessBitmaps));
 		myProcessBitmaps.onClick = function() {
 			myPreferences[kPrefsProcessBitmaps] = myProcessBitmaps.value;
-			myEnableInterfaceItems();
+			interfaceItemsChanged();
 		}
 		myProcessBitmaps.value = myPreferences[kPrefsProcessBitmaps];
 		
@@ -834,44 +869,51 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 		margins = mySubPanelMargins;
 		
-		var myChangeFormat = add("checkbox", undefined, localize(msgResaveJPEGInFormat));
-		myChangeFormat.onClick = function() {
-			myPreferences[kPrefsChangeFormat] = myChangeFormat.value;
-			myEnableInterfaceItems();
-		}
-		myChangeFormat.value = myPreferences[kPrefsChangeFormat];
-		
-		var myChangeFormatGroup = add("group");
-		with (myChangeFormatGroup) {
+		var myChangeFormatOfGroup = add("group");
+		with (myChangeFormatOfGroup) {
 			orientation = "column";
 			alignChildren = ["left", "top"];
-			margins = mySubControlMargins;
+			
+			var myChangeFormatOfNoneButton = add("radiobutton", undefined, localize(msgChangeFormatOfNone));
+			myChangeFormatOfNoneButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfNone;
+				interfaceItemsChanged();
+			}
+			myChangeFormatOfNoneButton.value = (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfNone);
+			
+			var myChangeFormatOfWrongButton = add("radiobutton", undefined, localize(msgChangeFormatOfWrong));
+			myChangeFormatOfWrongButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfWrong;
+				interfaceItemsChanged();
+			}
+			myChangeFormatOfWrongButton.value = (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfWrong);
+			
+			var myChangeFormatOfAllButton = add("radiobutton", undefined, localize(msgChangeFormatOfAll));
+			myChangeFormatOfAllButton.onClick = function() {
+				myPreferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfAll;
+				interfaceItemsChanged();
+			}
+			myChangeFormatOfAllButton.value = (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfAll);
 		}
 		
-		with (myChangeFormatGroup.add("group")) {
+		var myChangeFormatParametersGroup = myChangeFormatOfGroup.add("group");
+		with (myChangeFormatParametersGroup) {
 			orientation = "column";
 			alignChildren = ["fill", "top"];
+			margins = mySubControlMargins;
 			
-			var myChangeFormatToTIFFButton = add("radiobutton", undefined, localize(msgTIFF));
-			myChangeFormatToTIFFButton.onClick = function() {
-				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFF;
-				myEnableInterfaceItems();
+			var myChangeFormatToDropdown = add("dropdownlist");
+			for (var itm = 0; itm < kChangeFormatToOptions.length; itm++) {
+				var newListItem = myChangeFormatToDropdown.add("item", kChangeFormatToOptions[itm][1]);
+				newListItem[kListItemObject] = kChangeFormatToOptions[itm][0];
+				if (newListItem[kListItemObject] == myPreferences[kPrefsChangeFormatTo]) {
+					myChangeFormatToDropdown.selection = newListItem;
+				}
 			}
-			myChangeFormatToTIFFButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF);
-			
-			var myChangeFormatToTIFFAndPSDButton = add("radiobutton", undefined, localize(msgTIFFAndPSD));
-			myChangeFormatToTIFFAndPSDButton.onClick = function() {
-				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToTIFFAndPSD;
-				myEnableInterfaceItems();
+			myChangeFormatToDropdown.onChange = function () {
+				myPreferences[kPrefsChangeFormatTo] = myChangeFormatToDropdown.selection[kListItemObject];
+				interfaceItemsChanged();
 			}
-			myChangeFormatToTIFFAndPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD);
-			
-			var myChangeFormatToPSDButton = add("radiobutton", undefined, localize(msgPSD));
-			myChangeFormatToPSDButton.onClick = function() {
-				myPreferences[kPrefsChangeFormatTo] = kPrefsChangeFormatToPSD;
-				myEnableInterfaceItems();
-			}
-			myChangeFormatToPSDButton.value = (myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD);
 			
 			var myPSDOptionsGroup = add("group");
 			with (myPSDOptionsGroup) {
@@ -891,7 +933,19 @@ function displayPreferences() {
 				}
 				myRemoveClipping.value = myPreferences[kPrefsRemoveClipping];
 			}
-	
+
+			var myProcessPhotoshopEPS = add("checkbox", undefined, localize(msgProcessPhotoshopEPS));
+			myProcessPhotoshopEPS.onClick = function() {
+				myPreferences[kPrefsProcessPhotoshopEPS] = myProcessPhotoshopEPS.value;
+				if (!myFlagEPSScanned) {
+					myGraphics = new myDictionary();
+					myDialog.close(3);
+				} else {
+					interfaceItemsChanged();
+				}
+			}
+			myProcessPhotoshopEPS.value = myPreferences[kPrefsProcessPhotoshopEPS];
+			
 			var myDeleteOriginals = add("checkbox", undefined, localize(msgRemoveSourceImages));
 			myDeleteOriginals.onClick = function() {
 				myPreferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
@@ -931,7 +985,7 @@ function displayPreferences() {
 				myColorUpsample.value = myPreferences[kPrefsColorUpsample];
 				myColorUpsample.onClick = function() {
 					myPreferences[kPrefsColorUpsample] = myColorUpsample.value;
-					myEnableInterfaceItems();
+					interfaceItemsChanged();
 				}
 			}
 			
@@ -943,7 +997,7 @@ function displayPreferences() {
 				myColorDownsample.value = myPreferences[kPrefsColorDownsample];
 				myColorDownsample.onClick = function() {
 					myPreferences[kPrefsColorDownsample] = myColorDownsample.value;
-					myEnableInterfaceItems();
+					interfaceItemsChanged();
 				}
 			}
 			
@@ -1019,7 +1073,7 @@ function displayPreferences() {
 				myBitmapUpsample.value = myPreferences[kPrefsBitmapUpsample];
 				myBitmapUpsample.onClick = function() {
 					myPreferences[kPrefsBitmapUpsample] = myBitmapUpsample.value;
-					myEnableInterfaceItems();
+					interfaceItemsChanged();
 				}
 			}
 			
@@ -1031,7 +1085,7 @@ function displayPreferences() {
 				myBitmapDownsample.value = myPreferences[kPrefsBitmapDownsample];
 				myBitmapDownsample.onClick = function() {
 					myPreferences[kPrefsBitmapDownsample] = myBitmapDownsample.value;
-					myEnableInterfaceItems();
+					interfaceItemsChanged();
 				}
 			}
 			
@@ -1270,7 +1324,7 @@ function displayPreferences() {
 					break;
 			}
 			
-			myEnableInterfaceItems();
+			interfaceItemsChanged();
 		}
 	}
 	
@@ -1284,7 +1338,7 @@ function displayPreferences() {
 		var myDoBackup = add("checkbox", undefined, localize(msgDoBackup));
 		myDoBackup.onClick = function() {
 			myPreferences[kPrefsBackup] = myDoBackup.value;
-			myEnableInterfaceItems();
+			interfaceItemsChanged();
 		}
 		myDoBackup.value = myPreferences[kPrefsBackup];
 		
@@ -1330,12 +1384,17 @@ function displayPreferences() {
 		margins = [10, 14, 10, 10];
 		
 		var myImagesList = myImagesGroup.add("listbox", undefined, undefined, {multiselect:true, numberOfColumns:4, showHeaders:true, columnTitles:["Name", "#", "DPI"], columnWidths:[170, 30, 45]});
-		myImagesList.alignment = ["fill", "fill"];
+		with (myImagesList) {
+			alignment = ["fill", "top"];
+			preferredSize.height = 556;
+			maximumSize.height = 556;
+		}
 		
 		// отработка выделения картинок в обработку
 		myImagesList.onChange = function () {
 			myImagePositionsList.removeAll();
 			if ((myImagesList.selection != null) && (myImagesList.selection.length == 1)) {
+				// выделена одна картинка, заполним список вхождений
 				var myEntriesList = mySelectedGraphics[myImagesList.selection[0][kListItemObject]][kGraphicsObjectList];
 				for (var itm in myEntriesList) {
 					var newListItem = myImagePositionsList.add("item", myDocuments[myEntriesList[itm][kGraphicsParentDocument]][kDocumentsName]);
@@ -1343,15 +1402,33 @@ function displayPreferences() {
 					// CS3 не умеет делать многоколоночный список
 					if (myAppVersion > 5) {
 						newListItem.subItems[0].text = myEntriesList[itm][kGraphicsParentPage];
-						newListItem.subItems[1].text = fillSpaces(Math.round(myEntriesList[itm][kGraphicsLowestDPI]), 5);
+						if (mySelectedGraphics[myImagesList.selection[0][kListItemObject]][kGraphicsPhotoshopEPS]) {
+							newListItem.subItems[1].text = fillSpaces("?", 5);
+						} else {
+							newListItem.subItems[1].text = fillSpaces(Math.round(myEntriesList[itm][kGraphicsLowestDPI]), 5);
+						}
 					}
 				}
 			}
+			
 			myOKButton.enabled = ((myImagesList.selection != null) && (myImagesList.selection.length > 0));
 		}
 		
+		// проверим, не снять ли с кого выделение
+		myImagesList.onClick = function () {
+			for (var itm = 0; itm < myImagesList.items.length; itm++) {
+				if (myImagesList.items[itm].selected) {
+					var listItemObject = mySelectedGraphics[myImagesList.items[itm][kListItemObject]];
+					if (listItemObject[kGraphicsFileReadonly] || listItemObject[kGraphicsFolderReadonly])
+						myImagesList.items[itm].selected = false;
+				}
+			}
+		}
+		
 		var myImagePositionsList = myImagesGroup.add("listbox", undefined, undefined, {multiselect:false, numberOfColumns:4, showHeaders:true, columnTitles:["Document", "Page", "DPI"], columnWidths:[160, 40, 45]});
-		myImagePositionsList.preferredSize.height = 164;
+		with (myImagePositionsList) {
+			preferredSize.height = 164;
+		}
 		myImagePositionsList.onDoubleClick = function () {
 			alert("Написать показ картинки");
 			/*
@@ -1410,11 +1487,18 @@ function displayPreferences() {
 				if (((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
 					(myPreferences[kPrefsScope] == kScopeSelectedImages)) {
 					// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
-					if ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
+					if ((myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
 						// надо менять формат
-						return true;
+						if (mySelectedGraphics[grc][kGraphicsPhotoshopEPS]) {
+							// это фотошоповский EPS
+							return myPreferences[kPrefsProcessPhotoshopEPS];
+						} else {
+							return true;
+						}
 					}
-					if (mySelectedGraphics[grc][kGraphicsBitmap]) {
+					if (mySelectedGraphics[grc][kGraphicsPhotoshopEPS]) {
+						// фотошоповский EPS
+					} else if (mySelectedGraphics[grc][kGraphicsBitmap]) {
 						// ч/б картинка
 						if (!myPreferences[kPrefsProcessBitmaps]) { return false; }
 						if ((myPreferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
@@ -1520,10 +1604,15 @@ function displayPreferences() {
 			// CS3 не умеет делать многоколоночный список
 			if (myAppVersion > 5) {
 				newListItem.subItems[0].text = fillSpaces(dictionaryLength(mySelectedGraphics[grc][kGraphicsObjectList]), 2);
-				newListItem.subItems[1].text = fillSpaces(Math.round(mySelectedGraphics[grc][kGraphicsLowestDPI]), 5);
+				if (mySelectedGraphics[grc][kGraphicsPhotoshopEPS]) {
+					newListItem.subItems[1].text = fillSpaces("-", 5);
+				} else {
+					newListItem.subItems[1].text = fillSpaces(Math.round(mySelectedGraphics[grc][kGraphicsLowestDPI]), 5);
+				}
 			}
+			newListItem.selected = (!mySelectedGraphics[grc][kGraphicsFileReadonly] && !mySelectedGraphics[grc][kGraphicsFolderReadonly]);
 		}
-		myImagesList.selection = myImagesList.items;
+		//myImagesList.selection = myImagesList.items;
 	}
 
 	// Группа элементов контроля (круто, да?)
@@ -1561,23 +1650,8 @@ function displayPreferences() {
 		}
 	}
 	
-	// Включение/выключение элементов интерфейса
-	function myEnableInterfaceItems() {
-		myFlagChangeFormat = myChangeFormat.value;
-		myFlagResample = (myColorUpsample.value || myColorDownsample.value || (myProcessBitmaps.value && (myBitmapUpsample.value || myBitmapDownsample.value)));
-		
-		myChangeFormatGroup.enabled = myFlagChangeFormat;
-		myPSDOptionsGroup.enabled = !myChangeFormatToTIFFButton.value;
-		myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
-		myResampleMethodGroup.enabled = myFlagResample;
-		myIncludePasteboard.enabled = ((myPreferences[kPrefsScope] == kScopeAllDocs) || (myPreferences[kPrefsScope] == kScopeActiveDoc));
-		myBackupGroup.enabled = myDoBackup.value;
-		
-		filterGraphics();
-	}
-	
 	// Сохранение настроек
-	function mySavePreferences() {
+	function savePreferences() {
 		var myPreferencesArray = [];
 		for (var prf in myPreferences)
 			myPreferencesArray.push(prf + "\t" + typeof myPreferences[prf] + "\t" + myPreferences[prf]);
@@ -1589,6 +1663,22 @@ function displayPreferences() {
 		} else {
 			alert(localize(msgErrorSavingPreferences));
 		}
+	}
+	
+	// Включение/выключение элементов интерфейса
+	function interfaceItemsChanged() {
+		myFlagChangeFormat = (myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone);
+		myFlagResample = (myColorUpsample.value || myColorDownsample.value || (myProcessBitmaps.value && (myBitmapUpsample.value || myBitmapDownsample.value)));
+		
+		myChangeFormatParametersGroup.enabled = myFlagChangeFormat;
+		myPSDOptionsGroup.enabled = (myPreferences[kPrefsChangeFormatTo] > 0);
+		myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
+		myResampleMethodGroup.enabled = myFlagResample;
+		myIncludePasteboard.enabled = ((myPreferences[kPrefsScope] == kScopeAllDocs) || (myPreferences[kPrefsScope] == kScopeActiveDoc));
+		myBackupGroup.enabled = myDoBackup.value;
+		
+		savePreferences();
+		filterGraphics();
 	}
 	
 	// Отработать включение/выключение групп
@@ -1605,14 +1695,14 @@ function displayPreferences() {
 	switch (myDialogResult) {
 		case 1:
 			// OK
-			mySavePreferences();
+			savePreferences();
 			break;
 		case 2:
 			// Cancel
 			return false;
 		case 3:
-			// Смена языка
-			mySavePreferences();
+			// Смена языка или рескан EPSов
+			savePreferences();
 			myFlagRestart = true;
 			return false;
 	}
@@ -1777,8 +1867,11 @@ function processImages() {
 				throw "Не удаётся открыть документ " + myFilePath;
 			
 			// Проверим, правильно ли InDesign определил разрешение
-			if (myActualDPI != myDocument.resolution) {
-				myMaxPercentage *= myDocument.resolution / myActualDPI ;
+			if (myActualDPI == 0) {
+				// это EPS, не обращаем внимания
+			} else if (myActualDPI != myDocument.resolution) {
+				// поправим
+				myMaxPercentage *= myDocument.resolution / myActualDPI;
 			}
 			
 			// Разрешение
@@ -1850,13 +1943,13 @@ function processImages() {
 		showStatus(undefined, mySelectedGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormat]) && (mySelectedGraphics[grc][kGraphicsChangeFormat]));
+		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone) && (mySelectedGraphics[grc][kGraphicsChangeFormat]));
 		
 		var myChangeFormatCode;
 		if (myDoChangeFormat) {
-			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFF)) myChangeFormatCode = 1;
-			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToTIFFAndPSD)) myChangeFormatCode = (mySelectedGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
-			if ((myPreferences[kPrefsChangeFormatTo] == kPrefsChangeFormatToPSD)) myChangeFormatCode = 2;
+			if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFF)) myChangeFormatCode = 1;
+			if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFFAndPSD)) myChangeFormatCode = (mySelectedGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
+			if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) myChangeFormatCode = 2;
 		} else {
 			myChangeFormatCode = 0;
 		}
@@ -1865,8 +1958,6 @@ function processImages() {
 		
 		var myNewFilePath = "";
 		if (myDoChangeFormat) {
-			// ридонли не дописаный
-			//var myPath = (mySelectedGraphics[grc][kGraphicsFolderReadonly] ? DocumentOfGraphic() : myFile.path);
 			var myFile = new File(grc);
 			var myPath = myFile.path;
 			myNewFilePath = uniqueFileName(myPath, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + (myChangeFormatCode == 1 ? "tif" : "psd")));
@@ -2036,8 +2127,8 @@ function relinkImages() {
 			}
 			
 			// Убить clipping?
-			if ((myPreferences[kPrefsChangeFormat]) &&
-				(myPreferences[kPrefsChangeFormatTo] != kPrefsChangeFormatToTIFF) &&
+			if ((myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone) &&
+				(myPreferences[kPrefsChangeFormatTo] != kChangeFormatToTIFF) &&
 				(myPreferences[kPrefsRemoveClipping]) && 
 				(myGraphicsList[itm][kGraphicsObject].clippingPath.clippingType != ClippingPathType.NONE)) {
 				myGraphicsList[itm][kGraphicsObject].clippingPath.clippingType = ClippingPathType.NONE;
@@ -2251,6 +2342,32 @@ function isGraphicRaster(myGraphic) {
 	return (myGraphic.reflect.name == "Image");
 }
 
+// Проверка EPSа на фотошопность
+// ------------------------------------------------------
+function isGraphicPhotoshopEPS(myGraphic) {
+	var myIsPhotoshopEPS = false;
+	
+	try {
+		if (myGraphic.imageTypeName == "EPS") {
+			var myLinkedFile = new File(myGraphic.itemLink.filePath);
+			myLinkedFile.open("r");
+			
+			var str;
+			var itm = 0;
+			
+			do {
+				str = myLinkedFile.readln();
+				myIsPhotoshopEPS = (str.search("%%Creator: Adobe Photoshop") != -1);
+				itm++;
+			} while ((!myIsPhotoshopEPS) && (itm < 10));
+			
+			myLinkedFile.close();
+		}
+	} catch (e) {}
+	
+	return myIsPhotoshopEPS;
+}
+
 // Проверка картинки на битмапность
 // ------------------------------------------------------
 function isGraphicBitmap(myGraphic) {
@@ -2266,9 +2383,9 @@ function isGraphicBitmap(myGraphic) {
 function isGraphicChangeFormat(myGraphic) {
 	try {
 		if (myAppVersion >= 6) {
-			return (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0});
+			return (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "EPS":0});
 		} else {
-			return (myGraphic.itemLink.linkType in {"JPEG":0, "Portable Network Graphics (PNG)":0, "Windows Bitmap":0, "CompuServe GIF":0});
+			return (myGraphic.itemLink.linkType in {"JPEG":0, "Portable Network Graphics (PNG)":0, "Windows Bitmap":0, "CompuServe GIF":0, "EPS":0});
 		}
 	} catch (e) {
 		return false;
@@ -2309,11 +2426,21 @@ function isGraphicBitmapDPIHigh(myGraphicDPI) {
 	return (myGraphicDPI > (myPreferences[kPrefsBitmapTargetDPI] + myPreferences[kPrefsBitmapDelta]));
 }
 
+// Получить actualPpi
+// ------------------------------------------------------
+function actualPPI(myGraphic) {
+	try {
+		return [myGraphic.actualPpi[0], myGraphic.actualPpi[1]];
+	} catch (e) {
+		return [0, 0];
+	}
+}
+
 // Получить самый низкий effective dpi
 // ------------------------------------------------------
 function lowestDPI(myGraphic) {
-	var myHorizontalDPI = Math.abs((myGraphic.actualPpi[0] * 100) / myGraphic.absoluteHorizontalScale);
-	var myVerticalDPI = Math.abs((myGraphic.actualPpi[1] * 100) / myGraphic.absoluteVerticalScale);
+	var myHorizontalDPI = Math.abs((actualPPI(myGraphic)[0] * 100) / myGraphic.absoluteHorizontalScale);
+	var myVerticalDPI = Math.abs((actualPPI(myGraphic)[1] * 100) / myGraphic.absoluteVerticalScale);
 	return (myHorizontalDPI < myVerticalDPI ? myVerticalDPI : myVerticalDPI);
 }
 

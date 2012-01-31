@@ -26,6 +26,8 @@
 
 При сохранении в PSD можно отрывать лэер от фона и убирать обтравку в InDesign.
 
+При желании можно определять и обрабатывать файлы Photoshop EPS, что несколько замедляет проверку изображений.
+
 Оригиналы изображений можно удалять.
 
 ### Разрешение
@@ -50,6 +52,8 @@
 Изображения за пределами вылетов можно обрабатывать или игнорировать.
 
 Изображения на мастерах из обработки исключаются.
+
+Файлы с правами доступа только для чтения из обработки исключаются.
 
 ### Список изображений
 
@@ -91,6 +95,8 @@ New files are created in the same folder as originals.
 
 Background layer can be transformed to normal layer, and clipping path in InDesign can be removed when resaving to PSD.
 
+Photoshop EPS files can be optionally detected and processed, which is slightly slowing images checking process.
+
 Original images can be removed.
 
 ### Resolution
@@ -115,6 +121,8 @@ Image resampling method can be choosen from:
 Images that are off-bleeds can be processed or ignored.
 
 Images on master pages are always ignored.
+
+Read-only files are always ignored.
 
 ### Images list
 
