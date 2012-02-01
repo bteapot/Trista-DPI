@@ -904,7 +904,7 @@ function displayPreferences() {
 			
 			var myChangeFormatToDropdown = add("dropdownlist");
 			for (var itm = 0; itm < kChangeFormatToOptions.length; itm++) {
-				var newListItem = myChangeFormatToDropdown.add("item", kChangeFormatToOptions[itm][1]);
+				var newListItem = myChangeFormatToDropdown.add("item", localize(kChangeFormatToOptions[itm][1]));
 				newListItem[kListItemObject] = kChangeFormatToOptions[itm][0];
 				if (newListItem[kListItemObject] == myPreferences[kPrefsChangeFormatTo]) {
 					myChangeFormatToDropdown.selection = newListItem;
