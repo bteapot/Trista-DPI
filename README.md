@@ -53,12 +53,12 @@
 
 Изображения на мастерах из обработки исключаются.
 
-Файлы с правами доступа только для чтения из обработки исключаются.
-
 ### Список изображений
 
 В обработку идут только изображения, выбранные в этом списке.
 При выделении только одного изображения показывается список документов и номера полос, на которых выделенное изображение присутствует.
+
+Файлы с правами доступа только для чтения из обработки исключаются.
 
 ### Резервное копирование
 
@@ -122,12 +122,12 @@ Images that are off-bleeds can be processed or ignored.
 
 Images on master pages are always ignored.
 
-Read-only files are always ignored.
-
 ### Images list
 
 Only images selected in this list will be processed.
 When only one image is selected, all its occurences are listed with corresponding document name and page number.
+
+Read-only files are always ignored.
 
 ### Backup
 
