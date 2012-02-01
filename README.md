@@ -20,9 +20,9 @@
 По желанию JPEG, PNG, GIF и BMP можно пересохранять в TIFF или PSD.
 Новые файлы создаются в той-же папке, что и исходные.
 
-* **TIFF** - все неполиграфические форматы (JPEG, PNG и т.п.) будут пересохранены в TIFF.
-* **TIFF, с обтравкой в PSD** - вся неполиграфия в TIFF, а при обнаружении обтравки на картинке в InDesign - в PSD.
-* **PSD** - вся неполиграфия в PSD.
+* **Сохранять как TIFF** - все неполиграфические форматы (JPEG, PNG и т.п.) будут пересохранены в TIFF.
+* **Сохранять как TIFF, с обтравкой в PSD** - вся неполиграфия в TIFF, а при обнаружении обтравки на картинке в InDesign - в PSD.
+* **Сохранять как PSD** - вся неполиграфия в PSD.
 
 При сохранении в PSD можно отрывать лэер от фона и убирать обтравку в InDesign.
 
@@ -89,9 +89,9 @@ All InDesign raster graphic formats are supported.
 Optionally JPEG, PNG, GIF and BMP can be resaved as TIFF or PSD.
 New files are created in the same folder as originals.
 
-* **TIFF** - all non-prepress formats (JPEG, PNG etc.) are resaved to TIFF.
-* **TIFF, PSD when clipping detected** - all non-prepress to TIFF, and to PSD when detecting a clipping path in InDesign.
-* **PSD** - all non-prepress to PSD.
+* **Save as TIFF** - all non-prepress formats (JPEG, PNG etc.) are resaved to TIFF.
+* **Save as TIFF, PSD when clipping detected** - all non-prepress to TIFF, and to PSD when detecting a clipping path in InDesign.
+* **Save as PSD** - all non-prepress to PSD.
 
 Background layer can be transformed to normal layer, and clipping path in InDesign can be removed when resaving to PSD.
 

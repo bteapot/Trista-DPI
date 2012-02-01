@@ -224,7 +224,7 @@ const kGraphicsNewFilePath = "graphicsNewFilePath";
 const kGraphicsFileReadonly = "graphicsFileReadonly";
 const kGraphicsFolderReadonly = "graphicsFolderReadonly";
 const kGraphicsDoRelink = "graphicsDoRelink";
-const kGraphicsChangeFormat = "graphicsChangeFormat";
+const kGraphicsFormat = "graphicsFormat";
 const kGraphicsResample = "graphicsResample";
 const kGraphicsPhotoshopEPS = "graphicsPhotoshopEPS";
 const kGraphicsBitmap = "graphicsBitmap";
@@ -282,7 +282,7 @@ const kChangeFormatToOptions = [
 		en: "Save as TIFF" }],
 	[kChangeFormatToTIFFAndPSD, {
 		ru: "Сохранять как TIFF, с обтравкой в PSD",
-		en: "Save as TIFF, with clipping to PSD" }],
+		en: "Save as TIFF, PSD when clipping detected" }],
 	[kChangeFormatToPSD, {
 		ru: "Сохранять как PSD",
 		en: "Save as PSD" }]];
@@ -650,11 +650,12 @@ function analyseGraphics() {
 				// Не попадался, добавим первое вхождение
 				myGraphics[grc] = new myDictionary();
 				myGraphics[grc][kGraphicsName] = myGraphic.itemLink.name;
-				myGraphics[grc][kGraphicsChangeFormat] = isGraphicChangeFormat(myGraphic);
+				myGraphics[grc][kGraphicsFormat] = graphicFormat(myGraphic);
 				myGraphics[grc][kGraphicsResample] = false;
 				myGraphics[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
 				myGraphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
 				myGraphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
+				myGraphics[grc][kGraphicsHasClippingPath] = false;
 				myGraphics[grc][kGraphicsOnMaster] = false;
 				myGraphics[grc][kGraphicsObjectList] = new myDictionary();
 				
@@ -672,11 +673,15 @@ function analyseGraphics() {
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentID(documentOfGraphic(myGraphic));
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentPage] = pageOfGraphic(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = isGraphicWithinBleeds(myGraphic);
-			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsHasClippingPath] = hasClippingPath(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI] = lowestDPI(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectHScale] = (myGraphic.absoluteFlip == Flip.HORIZONTAL ? -1 : 1) * myGraphic.absoluteHorizontalScale / 100;
 			myGraphics[grc][kGraphicsObjectList][itm][kGraphicsObjectVScale] = (myGraphic.absoluteFlip == Flip.VERTICAL ? -1 : 1) * myGraphic.absoluteVerticalScale / 100;
+			
+			// Есть клиппинг?
+			if (hasClippingPath(myGraphic)) {
+				myGraphics[grc][kGraphicsHasClippingPath] = true;
+			}
 			
 			// Картинка на мастере?
 			if (isGraphicOnMaster(myGraphic)) {
@@ -1487,15 +1492,7 @@ function displayPreferences() {
 				if (((myPreferences[kPrefsIncludePasteboard]) || (mySelectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
 					(myPreferences[kPrefsScope] == kScopeSelectedImages)) {
 					// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
-					if ((myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone) && (mySelectedGraphics[grc][kGraphicsChangeFormat])) {
-						// надо менять формат
-						if (mySelectedGraphics[grc][kGraphicsPhotoshopEPS]) {
-							// это фотошоповский EPS
-							return myPreferences[kPrefsProcessPhotoshopEPS];
-						} else {
-							return true;
-						}
-					}
+					if (isGraphicChangeFormat(mySelectedGraphics[grc])) { return true; }
 					if (mySelectedGraphics[grc][kGraphicsPhotoshopEPS]) {
 						// фотошоповский EPS
 					} else if (mySelectedGraphics[grc][kGraphicsBitmap]) {
@@ -1943,7 +1940,7 @@ function processImages() {
 		showStatus(undefined, mySelectedGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = ((myPreferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone) && (mySelectedGraphics[grc][kGraphicsChangeFormat]));
+		var myDoChangeFormat = isGraphicChangeFormat(mySelectedGraphics[grc]);
 		
 		var myChangeFormatCode;
 		if (myDoChangeFormat) {
@@ -2378,16 +2375,64 @@ function isGraphicBitmap(myGraphic) {
 	}
 }
 
+// Получить название формата файла
+// ------------------------------------------------------
+function graphicFormat(myGraphic) {
+	try {
+		if (myAppVersion >= 6) {
+			return myGraphic.imageTypeName;
+		} else {
+			return myGraphic.itemLink.linkType;
+		}
+	} catch (e) {
+		return false;
+	}
+}
+
 // Проверка картинки на формат, подпадающий под обработку
 // ------------------------------------------------------
 function isGraphicChangeFormat(myGraphic) {
-	try {
-		if (myAppVersion >= 6) {
-			return (myGraphic.imageTypeName in {"JPEG":0, "PNG":0, "Windows Bitmap":0, "CompuServe GIF":0, "EPS":0});
-		} else {
-			return (myGraphic.itemLink.linkType in {"JPEG":0, "Portable Network Graphics (PNG)":0, "Windows Bitmap":0, "CompuServe GIF":0, "EPS":0});
+	
+	function isGraphicFormatWrong() {
+		return (
+			(myGraphic[kGraphicsFormat] in {"JPEG":0, "PNG":0, "Portable Network Graphics (PNG)":0, "Windows Bitmap":0,"CompuServe GIF":0}) ||
+			((myGraphic[kGraphicsFormat] == "EPS") && myPreferences[kPrefsProcessPhotoshopEPS])
+		);
+	}
+	
+	$.writeln(myGraphic[kGraphicsFormat]);
+	
+	if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfNone) {
+		return false;
+	} else if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfWrong) {
+		return isGraphicFormatWrong();
+	} else if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfAll) {
+		if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFF)) {
+			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				return false;
+			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				return true;
+			} else {
+				return isGraphicFormatWrong();
+			}
+		} else if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFFAndPSD)) {
+			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				return myGraphic[kGraphicsHasClippingPath];
+			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				return !myGraphic[kGraphicsHasClippingPath];
+			} else {
+				return isGraphicFormatWrong();
+			}
+		} else if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) {
+			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				return true;
+			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				return false;
+			} else {
+				return isGraphicFormatWrong();
+			}
 		}
-	} catch (e) {
+	} else {
 		return false;
 	}
 }
