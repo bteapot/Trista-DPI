@@ -58,7 +58,7 @@
 В обработку идут только изображения, выбранные в этом списке.
 При выделении только одного изображения показывается список документов и номера полос, на которых выделенное изображение присутствует.
 
-Файлы с правами доступа только для чтения из обработки исключаются.
+Файлы с правами доступа только для чтения отмечаются красной точкой и из обработки исключаются.
 
 ### Резервное копирование
 
@@ -127,7 +127,7 @@ Images on master pages are always ignored.
 Only images selected in this list will be processed.
 When only one image is selected, all its occurences are listed with corresponding document name and page number.
 
-Read-only files are always ignored.
+Read-only files are marked with red dot and always ignored.
 
 ### Backup
 
