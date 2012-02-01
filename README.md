@@ -127,7 +127,7 @@ Images on master pages are always ignored.
 Only images selected in this list will be processed.
 When only one image is selected, all its occurences are listed with corresponding document name and page number.
 
-Read-only files are marked with red dot and always ignored.
+Read-only files are marked with a red dot and always ignored.
 
 ### Backup
 
