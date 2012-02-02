@@ -2150,8 +2150,17 @@ function relinkImages() {
 			
 			// Скорректируем размер
 			if (mySelectedGraphics[grc][kGraphicsResample]) {
-				myGraphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (myGraphicsList[itm][kGraphicsObjectHScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
-				myGraphicsList[itm][kGraphicsObject].absoluteVerticalScale = (myGraphicsList[itm][kGraphicsObjectVScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+				if (graphicFormat(myGraphicsList[itm][kGraphicsObject]) == "CompuServe GIF") {
+					// это gif, в нём разрешение всегда 72 dpi
+					debugPrintObject(myGraphicsList[itm]);
+					debugPrintObject(mySelectedGraphics[grc]);
+					myGraphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (myGraphicsList[itm][kGraphicsObjectHScale] * (mySelectedGraphics[grc][kGraphicsLowestDPI] / myPreferences[kPrefsColorTargetDPI])) * 100;
+					myGraphicsList[itm][kGraphicsObject].absoluteVerticalScale = (myGraphicsList[itm][kGraphicsObjectVScale] * (mySelectedGraphics[grc][kGraphicsLowestDPI] / myPreferences[kPrefsColorTargetDPI])) * 100;
+				} else {
+					// всё нормально, это не gif
+					myGraphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (myGraphicsList[itm][kGraphicsObjectHScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+					myGraphicsList[itm][kGraphicsObject].absoluteVerticalScale = (myGraphicsList[itm][kGraphicsObjectVScale] / mySelectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+				}
 			}
 			
 			// Восстановим reference pointы
@@ -2400,35 +2409,48 @@ function isGraphicChangeFormat(myGraphic) {
 		);
 	}
 	
-	$.writeln(myGraphic[kGraphicsFormat]);
-	
 	if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfNone) {
+		// ничего не пересохраняем
 		return false;
 	} else if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfWrong) {
+		// пересохраняем только неполиграфию
 		return isGraphicFormatWrong();
 	} else if (myPreferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfAll) {
+		// пересохраняем всё
 		if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFF)) {
+			// всё в тифы
 			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				// это тиф, пересохранять не надо
 				return false;
 			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				// это psd, пересохраняем
 				return true;
 			} else {
+				// пересохраняем, если неполиграфия
 				return isGraphicFormatWrong();
 			}
 		} else if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToTIFFAndPSD)) {
+			// в тифы, с обтравками - в psd
 			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				// это тиф, пересохраняем если на нём есть клиппинг
 				return myGraphic[kGraphicsHasClippingPath];
 			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				// это psd, пересохраняем, если нет клиппинга
 				return !myGraphic[kGraphicsHasClippingPath];
 			} else {
+				// пересохраняем, если неполиграфия
 				return isGraphicFormatWrong();
 			}
 		} else if ((myPreferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) {
+			// всё в psd
 			if (myGraphic[kGraphicsFormat] == "TIFF") {
+				// это тиф, пересохраняем
 				return true;
 			} else if (myGraphic[kGraphicsFormat] == "Photoshop") {
+				// это psd, не трогаем
 				return false;
 			} else {
+				// пересохраняем, если неполиграфия
 				return isGraphicFormatWrong();
 			}
 		}
