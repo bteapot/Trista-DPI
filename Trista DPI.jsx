@@ -2152,8 +2152,6 @@ function relinkImages() {
 			if (mySelectedGraphics[grc][kGraphicsResample]) {
 				if (graphicFormat(myGraphicsList[itm][kGraphicsObject]) == "CompuServe GIF") {
 					// это gif, в нём разрешение всегда 72 dpi
-					debugPrintObject(myGraphicsList[itm]);
-					debugPrintObject(mySelectedGraphics[grc]);
 					myGraphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (myGraphicsList[itm][kGraphicsObjectHScale] * (mySelectedGraphics[grc][kGraphicsLowestDPI] / myPreferences[kPrefsColorTargetDPI])) * 100;
 					myGraphicsList[itm][kGraphicsObject].absoluteVerticalScale = (myGraphicsList[itm][kGraphicsObjectVScale] * (mySelectedGraphics[grc][kGraphicsLowestDPI] / myPreferences[kPrefsColorTargetDPI])) * 100;
 				} else {
