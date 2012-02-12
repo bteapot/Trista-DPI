@@ -117,7 +117,7 @@ const msgBackup = {
 	ru: "Резервное копирование",
 	en: "Backup" };
 const msgDoBackup = {
-	ru: "Делать",
+	ru: "Делать резервную копию",
 	en: "Do backup" };
 const msgChoose = {
 	ru: "Выбрать",
@@ -2154,7 +2154,7 @@ function relinkImages() {
 			var myReferencePoints = [];
 			for (var wnd = 0; wnd < myDocument.layoutWindows.length; wnd++) {
 				myReferencePoints[wnd] = myDocument.layoutWindows[wnd].transformReferencePoint;
-				myDocument.layoutWindows[wnd].transformReferencePoint = AnchorPoint.TOP_LEFT_ANCHOR;
+				myDocument.layoutWindows[wnd].transformReferencePoint = AnchorPoint.CENTER_ANCHOR;
 			}
 			
 			// Убить clipping?
