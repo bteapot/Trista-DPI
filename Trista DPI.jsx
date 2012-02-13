@@ -1041,7 +1041,7 @@ function displayPreferences() {
 				var myColorTargetDPI = add("edittext", undefined, preferences[kPrefsColorTargetDPI]);
 				myColorTargetDPI.characters = 6;
 				myColorTargetDPI.justify = "right";
-				myColorTargetDPI.onChange = function() {
+				myColorTargetDPI.onChanging = function() {
 					preferences[kPrefsColorTargetDPI] = parseInt(myColorTargetDPI.text);
 					filterGraphics();
 				}
@@ -1064,7 +1064,7 @@ function displayPreferences() {
 				var myColorDelta = add("edittext", undefined, preferences[kPrefsColorDelta]);
 				myColorDelta.characters = 6;
 				myColorDelta.justify = "right";
-				myColorDelta.onChange = function() {
+				myColorDelta.onChanging = function() {
 					preferences[kPrefsColorDelta] = parseInt(myColorDelta.text);
 					filterGraphics();
 				}
@@ -1129,7 +1129,7 @@ function displayPreferences() {
 				var myBitmapTargetDPI = add("edittext", undefined, preferences[kPrefsBitmapTargetDPI]);
 				myBitmapTargetDPI.characters = 6;
 				myBitmapTargetDPI.justify = "right";
-				myBitmapTargetDPI.onChange = function() {
+				myBitmapTargetDPI.onChanging = function() {
 					preferences[kPrefsBitmapTargetDPI] = parseInt(myBitmapTargetDPI.text);
 					filterGraphics();
 				}
@@ -1152,7 +1152,7 @@ function displayPreferences() {
 				var myBitmapDelta = add("edittext", undefined, preferences[kPrefsBitmapDelta]);
 				myBitmapDelta.characters = 6;
 				myBitmapDelta.justify = "right";
-				myBitmapDelta.onChange = function() {
+				myBitmapDelta.onChanging = function() {
 					preferences[kPrefsBitmapDelta] = parseInt(myBitmapDelta.text);
 					filterGraphics();
 				}
