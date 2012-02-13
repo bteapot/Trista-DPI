@@ -2006,9 +2006,6 @@ function processImages() {
 			var myRunningPhotoshop = "";
 			var myRunningPhotoshopVersion = 0.0;
 			
-			debugPrintObject(apps);
-			
-			$.writeln("1");
 			for (var itm = 0; itm < apps.length; itm++){
 				if (apps[itm].indexOf("photoshop") != -1) {
 					var myInstanceVersion = parseFloat(apps[itm].split("-")[1]);
@@ -2025,25 +2022,17 @@ function processImages() {
 					}
 				}
 			}
-			$.writeln("2");
 			
 			// Хоть один фотошоп запущен?
 			if (myRunningPhotoshopVersion > 0.0) {
 				myPhotoshop = myRunningPhotoshop;
 			}
 			
-			$.writeln("3");
 			// Запустить фотошоп, ежели чего
 			if (!BridgeTalk.isRunning(myPhotoshop)) {
 				BridgeTalk.launch(myPhotoshop);
 			}
-			$.writeln("4");
-			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") {
-				showStatus(BridgeTalk.getStatus(myPhotoshop), "", 0, dictionaryLength(selectedGraphics));
-				BridgeTalk.pump();
-			}
-			$.writeln(myPhotoshop + "<>" + BridgeTalk.getStatus(myPhotoshop));
-			$.writeln("5");
+			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") { BridgeTalk.pump() }
 			BridgeTalk.bringToFront("indesign");
 			
 			// Функция запроса дополнительного ожидания
