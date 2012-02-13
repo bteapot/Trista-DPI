@@ -460,7 +460,7 @@ function makeStatusWindow() {
 	// Элементы статусных данных
 	
 	// Фаза
-	statusWindowPhase = myDisplayZone.add("statictext", undefined, "");
+	statusWindowPhase = myDisplayZone.add("statictext", undefined, ".");
 	statusWindowPhase.minimumSize.height = 30;
 	statusWindowPhase.alignment = ["fill", "top"];
 	statusWindowPhase.justify = "left";
@@ -468,7 +468,7 @@ function makeStatusWindow() {
 	statusWindowPhase.graphics.foregroundColor = statusWindowPhase.graphics.newPen(statusWindowPhase.graphics.PenType.SOLID_COLOR, headerColor, 1);
 	
 	// Объект и градусник
-	statusWindowObject = myDisplayZone.add("statictext", undefined, "");
+	statusWindowObject = myDisplayZone.add("statictext", undefined, ".");
 	statusWindowObject.alignment = ["fill", "top"];
 	statusWindowObject.justify = "left";
 	statusWindowObject.graphics.font = smallFont;
@@ -501,7 +501,7 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	if (myGaugeMax != undefined) statusWindowGauge.maxvalue = myGaugeMax;
 	
 	// Отрисуем окошко
-	if (appVersion == 6) { statusWindow.update() }
+	//statusWindow.layout.layout(true);
 }
 
 // Спрячем окно с градусником
