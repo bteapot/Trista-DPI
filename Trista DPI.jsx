@@ -137,6 +137,9 @@ const msgErrorCreatingBackupFolder = {
 const msgErrorCopyingFile = {
 	ru: "Ошибка при резервном копировании файла.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
 	en: "Error copying file.\n%1\n\nCheck permissions, free space, etc." };
+const msgPhotoshopNotInstalled = {
+	ru: "Не найдено ни одной версии Фотошопа, способной общаться с этой версией ИнДизайна через BridgeTalk.\nЭто лечится только установкой Фотошопа из той-же версии CS, что и ИнДизайн.",
+	en: "No Photoshop version that able to communicate with this version of InDesign through BridgeTalk found.\nThat can be corrected by installing Photoshop of the same CS version as InDesign." };
 const msgPhotoshopTimeout = {
 	ru: "Фотошоп не отвечает на запросы.\nВозможно, он там чем-то занят и всё-таки скоро освободится.\n\nПодождать ещё?",
 	en: "Photoshop is not responding.\nIt's possibly very busy right now, but will unfreeze soon.\n\nWait a little bit more?" };
@@ -2001,7 +2004,7 @@ function processImages() {
 		// Запускаем скрипт в фотошопе
 		try {
 			// Вычислить старший фотошоп
-			var myPhotoshop = "";
+			var myPhotoshop = "photoshop";
 			var myPhotoshopVersion = 0.0;
 			var myRunningPhotoshop = "";
 			var myRunningPhotoshopVersion = 0.0;
@@ -2023,6 +2026,12 @@ function processImages() {
 				}
 			}
 			
+			// Вообще не установлена ни одна версия, совместимая с этой версией бриджа?
+			if (BridgeTalk.getStatus(myPhotoshop) == "ISNOTINSTALLED") {
+				alert(localize(msgPhotoshopNotInstalled));
+				return false;
+			}
+			
 			// Хоть один фотошоп запущен?
 			if (myRunningPhotoshopVersion > 0.0) {
 				myPhotoshop = myRunningPhotoshop;
@@ -2032,7 +2041,9 @@ function processImages() {
 			if (!BridgeTalk.isRunning(myPhotoshop)) {
 				BridgeTalk.launch(myPhotoshop);
 			}
-			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") { BridgeTalk.pump() }
+			while (BridgeTalk.getStatus(myPhotoshop) != "IDLE") {
+				BridgeTalk.pump();
+			}
 			BridgeTalk.bringToFront("indesign");
 			
 			// Функция запроса дополнительного ожидания
