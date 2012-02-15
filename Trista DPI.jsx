@@ -23,6 +23,9 @@ const msgCheckingImagesStatus = {
 const msgBackupStatus = {
 	ru: "РЕЗЕРВНОЕ КОПИРОВАНИЕ",
 	en: "BACKUP" };
+const msgDeleteOldBackupsStatus = {
+	ru: "УДАЛЕНИЕ СТАРЫХ РЕЗЕРВНЫХ КОПИЙ",
+	en: "DELETING OLD BACKUPS" };
 const msgProcessingImagesStatus = {
 	ru: "ОБРАБОТКА ИЗОБРАЖЕНИЙ",
 	en: "PROCESSING IMAGES" };
@@ -122,6 +125,9 @@ const msgDoBackup = {
 const msgChoose = {
 	ru: "Выбрать",
 	en: "Choose" };
+const msgDeleteOldBackups = {
+	ru: "Удалять резервные копии старше месяца",
+	en: "Delete backups created more than month ago" };
 const msgErrorSavingPreferences = {
 	ru: "Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.",
 	en: "Error saving preferences.\nIn general, this should not happen, so just in case the further execution of the script is canceled." };
@@ -131,6 +137,9 @@ const msgEmbeddedImage = {
 const msgNoImagesToProcess = {
 	ru: "Нет картинок, нуждающихся в обработке.\nПоздравляю!",
 	en: "There is no images to process.\nCongratulations!" };
+const msgErrorDeletingBackupFolder = {
+	ru: "Ошибка при удалении элемента резервной копии:\n%1",
+	en: "Error deleting backup element:\n%1" };
 const msgErrorCreatingBackupFolder = {
 	ru: "Ошибка при создании папки резервных копий.\nПроверьте правильность пути, слэш на конце, права доступа и т.п.",
 	en: "Error creating backup folder.\nCheck path, trailing slash, permissions, etc." };
@@ -183,6 +192,7 @@ var activeDocument;
 var flagStopExecution = false;
 var flagRestart;
 var flagEPSScanned = false;
+var flagOldBackupsDeleted = false;
 
 // Константы
 const kPrefsLocale = "locale";
@@ -210,6 +220,7 @@ const kPrefsBitmapDelta = "bitmapDelta";
 const kPrefsResampleMethod = "resampleMethod";
 const kPrefsBackup = "backup";
 const kPrefsBackupFolder = "backupFolder";
+const kPrefsDeleteOldBackups = "deleteOldBackups";
 
 const kDocumentsObject = "documentsObject";
 const kDocumentsName = "documentsName";
@@ -320,6 +331,7 @@ function process() {
 	if (!checkDocuments()) return;
 	if (!analyseGraphics()) return;
 	if (!displayPreferences()) return;
+	if (!deleteOldBackups()) return;
 	if (!backupImages()) return;
 	if (!processImages()) return;
 	if (!relinkImages()) return;
@@ -387,6 +399,7 @@ function initialSettings() {
 	preferences[kPrefsResampleMethod] = kResampleBicubic;
 	
 	preferences[kPrefsBackup] = true;
+	preferences[kPrefsDeleteOldBackups] = false;
 	
 	// Определение платформы
 	if ($.os.toLowerCase().indexOf("macintosh") != -1) {
@@ -1365,7 +1378,7 @@ function displayPreferences() {
 		myDoBackup.value = preferences[kPrefsBackup];
 		
 		var myBackupGroup = add("group");
-		myBackupGroup.orientation = "row";
+		myBackupGroup.orientation = "column";
 		myBackupGroup.alignChildren = ["fill", "top"];
 		myBackupGroup.margins = mySubControlMargins;
 
@@ -1379,11 +1392,6 @@ function displayPreferences() {
 			myBackupPath.onChange = function() {
 				preferences[kPrefsBackupFolder] = Folder.encode(myBackupPath.text);
 			}
-		}
-			
-		with (myBackupGroup.add("group")) {
-			orientation = "row";
-			alignChildren = ["right", "top"];
 			
 			var myBackupChooseButton = add("button", undefined, localize(msgChoose));
 			myBackupChooseButton.onClick = function() {
@@ -1394,6 +1402,19 @@ function displayPreferences() {
 				}
 			}
 		}
+		
+		with (myBackupGroup.add("group")) {
+			orientation = "row";
+			alignChildren = ["fill", "top"];
+				
+			var myDeleteOldBackups = add("checkbox", undefined, localize(msgDeleteOldBackups));
+			myDeleteOldBackups.onClick = function() {
+				preferences[kPrefsDeleteOldBackups] = myDeleteOldBackups.value;
+				interfaceItemsChanged();
+			}
+			myDeleteOldBackups.value = preferences[kPrefsDeleteOldBackups];
+		}
+		
 	}
 	
 	// Группа списка картинок
@@ -1545,6 +1566,7 @@ function displayPreferences() {
 		}
 		
 		// поехали
+		myOKButton.enabled = false;
 		myImagesList.selection = null;
 		myImagesList.removeAll();
 		selectedGraphics = cloneDictionary(graphics);
@@ -1689,7 +1711,7 @@ function displayPreferences() {
 		myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
 		myResampleMethodGroup.enabled = myFlagResample;
 		myIncludePasteboard.enabled = ((preferences[kPrefsScope] == kScopeAllDocs) || (preferences[kPrefsScope] == kScopeActiveDoc));
-		myBackupGroup.enabled = myDoBackup.value;
+		myBackupGroup.enabled = preferences[kPrefsBackup];
 		
 		savePreferences();
 		filterGraphics();
@@ -1771,6 +1793,76 @@ function displayPreferences() {
 	return true;
 }
 
+// Удалим старые резервыне копии
+// ------------------------------------------------------
+function deleteOldBackups() {
+	if (!preferences[kPrefsDeleteOldBackups] || flagOldBackupsDeleted) return true;
+	
+	showStatus(localize(msgDeleteOldBackupsStatus), "", undefined, undefined);
+	
+	var currentDate = new Date();
+	
+	// функция проверки на старость
+	function checkOldness(itm) {
+		if (itm.reflect.name != "Folder") { return false }
+		
+		var timeStamp = itm.name.split("-").slice(-4);
+		try {
+			var backupDate = new Date(
+				parseInt(timeStamp[0]),
+				parseInt(timeStamp[1]-1),
+				parseInt(timeStamp[2]),
+				parseInt(timeStamp[3].slice(0, 2)),
+				parseInt(timeStamp[3].slice(2, 4)),
+				parseInt(timeStamp[3].slice(4, 6)));
+		} catch(e) {
+			return false;
+		}
+		
+		// количество миллисекунд в дне - 86400000
+		return ((currentDate - backupDate) / 86400000 > 31);
+	}
+	
+	// получим список старых бэкапов
+	var backupsFolder = new Folder(Folder.decode(preferences[kPrefsBackupFolder]));
+	var oldBackups = backupsFolder.getFiles(checkOldness)
+	
+	showStatus(undefined, "", 0, oldBackups.length);
+	
+	// тупо убьём всех
+	for (itm in oldBackups) {
+		if (flagStopExecution) { break }
+		
+		showStatus(undefined, Folder.decode(oldBackups[itm].name), undefined, undefined);
+		
+		var containedFiles = oldBackups[itm].getFiles();
+		
+		// начнём с содержимого папки
+		for (fil in containedFiles) {
+			if (flagStopExecution) { break }
+			
+			if (!containedFiles[fil].remove()) {
+				alert(localize(msgErrorDeletingBackupFolder, containedFiles[fil].fullName));
+				flagStopExecution = true;
+			}
+		}
+		
+		// и закончим папкой этого бэкапа
+		if (!oldBackups[itm].remove()) {
+			alert(localize(msgErrorDeletingBackupFolder, containedFiles[fil].fullName));
+			flagStopExecution = true;
+		}
+		
+		showStatus(undefined, undefined, itm, undefined);
+	}
+	
+	showStatus(undefined, undefined, statusWindowGauge.maxvalue, statusWindowGauge.maxvalue);
+	hideStatus();
+	
+	flagOldBackupsDeleted = true;
+	return !flagStopExecution;
+}
+
 // Сохраним оригиналы картинок и документов. Бэкап, короче.
 // ------------------------------------------------------
 function backupImages() {
@@ -1785,32 +1877,32 @@ function backupImages() {
 		showStatus(undefined, myDocument.name, undefined, undefined);
 		
 		// Сделаем папку для бэкапа
-		var myDate = new Date();
-		var myBackupFolderName = cleanupPath(
+		var currentDate = new Date();
+		var backupFolderName = cleanupPath(
 			File.decode(myDocument.fullName.name) + "-" + 
-			myDate.getFullYear() + "-" + 
-			fillZeros(myDate.getMonth()+1, 2) + "-" + 
-			fillZeros(myDate.getDate(), 2) + "-" + 
-			fillZeros(myDate.getHours(), 2) + 
-			fillZeros(myDate.getMinutes(), 2) + 
-			fillZeros(myDate.getSeconds(), 2));
-		var myBackupFolder = new Folder(Folder.decode(preferences[kPrefsBackupFolder]) + myBackupFolderName);
+			currentDate.getFullYear() + "-" + 
+			fillZeros(currentDate.getMonth()+1, 2) + "-" + 
+			fillZeros(currentDate.getDate(), 2) + "-" + 
+			fillZeros(currentDate.getHours(), 2) + 
+			fillZeros(currentDate.getMinutes(), 2) + 
+			fillZeros(currentDate.getSeconds(), 2));
+		var backupFolder = new Folder(Folder.decode(preferences[kPrefsBackupFolder]) + backupFolderName);
 		
-		if (!myBackupFolder.create()) {
+		if (!backupFolder.create()) {
 			alert(localize(msgErrorCreatingBackupFolder));
 			flagStopExecution = true;
 			return;
 		}
 		
 		// Создадим лог-файл
-		var logFile = new File(myBackupFolder.fullName + "/" + kLogFileName);
+		var logFile = new File(backupFolder.fullName + "/" + kLogFileName);
 		if (!logFile.open("w")) {
 			flagStopExecution = true;
 			return;
 		}
 		
 		// Вместе с картинками (чего уж там) сохраним и .indd документ
-		var backupDocumentName = uniqueFileName(myBackupFolder.fullName, cleanupPath(File.decode(myDocument.fullName.name)));
+		var backupDocumentName = uniqueFileName(backupFolder.fullName, cleanupPath(File.decode(myDocument.fullName.name)));
 		if (!myDocument.fullName.copy(backupDocumentName)) {
 			alert(localize(msgErrorCopyingFile, myDocument.name));
 			logFile.writeln(kLogFileERR);
@@ -1827,7 +1919,7 @@ function backupImages() {
 			showStatus(undefined,undefined, undefined, undefined);
 			
 			var myFile = new File(myBackupList[grc].filePath);
-			var backupFileName = uniqueFileName(myBackupFolder.fullName, cleanupPath(File.decode(myFile.name)));
+			var backupFileName = uniqueFileName(backupFolder.fullName, cleanupPath(File.decode(myFile.name)));
 			if (!myFile.copy(backupFileName)) {
 				alert(localize(msgErrorCopyingFile, myBackupList[grc].filePath));
 				flagStopExecution = true;
