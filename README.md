@@ -65,6 +65,8 @@
 По желанию можно делать резервные копии всех изменяемых файлов, включая публикацию InDesign.
 При совпадении имён файлов, лежащих в разных папках, к имени файла добавляется уникальный номер.
 
+Можно включить автоматическое удаление резервных копий, сделанных более месяца назад.
+
 Установка
 ---------
 
@@ -133,6 +135,8 @@ Read-only files are marked with a red dot and always ignored.
 
 Optionally, back up copies of all changed files can be made, including the InDesign publication.
 When the file names from different folders are identical, unique number are added to file names.
+
+Backups created more than month ago can be automatically deleted if desired.
 
 Installation
 ------------
