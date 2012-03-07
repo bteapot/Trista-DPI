@@ -155,9 +155,6 @@ const msgPhotoshopTimeout = {
 const msgErrorProcessingImage = {
 	ru: "Ошибка при обработке изображения\n%1\n\n%2",
 	en: "Error processing image\n%1\n\n%2" };
-const msgProcessReadOnly = {
-	ru: "Файл изображения доступен только для чтения.\n%1\n\nМожно продолжить, сохраняя подобные файлы в папку \"%2\" рядом с файлом вёрстки InDesign.\n\nПродолжить?",
-	en: "Image file is read-only.\n%1\n\nIt is possible to continue, saving files in folder \"%2\" next to InDesign publication file.\n\nContinue?" };
 const msgImagesToProcess = {
 	ru: "Картинки в обработку",
 	en: "Images to process" };
@@ -261,8 +258,6 @@ const kGraphicsObjectFlip = "graphicsObjectFlip";
 const kGraphicsObjectBounds = "graphicsObjectBounds";
 
 const kListItemObject = "listItemObject";
-
-const kFolderForReadOnly = "From read-only files";
 
 const kLogFileName = "backup.log";
 const kLogFileEND = "END";
@@ -2767,13 +2762,14 @@ function uniqueFileName(myFolderName, myFileName) {
 // Проверим папку на readonly
 // ------------------------------------------------------
 function isFolderReadOnly(myFolder) {
-	if (!folders.hasOwnProperty(myFolder)) {
-		var myTestFile = new File(myFolder + "/.readonlytest");
-		folders[myFolder] = !myTestFile.open("w");
+	var myTestFile = new File(myFolder.absoluteURI + "/.readonlytest");
+	if (myTestFile.open("w")) {
+		myTestFile.close();
 		myTestFile.remove();
+		return true;
+	} else {
+		return false;
 	}
-	
-	return folders[myFolder];
 }
 
 // Почистить путь от слэшей
