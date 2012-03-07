@@ -1311,7 +1311,7 @@ function displayPreferences() {
 		var myIncludePasteboard = add("checkbox", undefined, localize(msgProcessOffBleedImages));
 		myIncludePasteboard.onClick = function() {
 			preferences[kPrefsIncludePasteboard] = myIncludePasteboard.value;
-			filterGraphics();
+			interfaceItemsChanged();
 		}
 		myIncludePasteboard.value = preferences[kPrefsIncludePasteboard];
 	}
@@ -2762,13 +2762,17 @@ function uniqueFileName(myFolderName, myFileName) {
 // Проверим папку на readonly
 // ------------------------------------------------------
 function isFolderReadOnly(myFolder) {
-	var myTestFile = new File(myFolder.absoluteURI + "/.readonlytest");
-	if (myTestFile.open("w")) {
-		myTestFile.close();
-		myTestFile.remove();
+	try {
+		var myTestFile = new File(myFolder.absoluteURI + "/.readonlytest");
+		if (myTestFile.open("w")) {
+			myTestFile.close();
+			myTestFile.remove();
+			return false;
+		} else {
+			return true;
+		}
+	} catch (e) {
 		return true;
-	} else {
-		return false;
 	}
 }
 
