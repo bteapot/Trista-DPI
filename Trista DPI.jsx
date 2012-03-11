@@ -128,6 +128,18 @@ const msgChoose = {
 const msgDeleteOldBackups = {
 	ru: "Удалять резервные копии старше месяца",
 	en: "Delete backups created more than month ago" };
+const msgWarning = {
+	ru: "Предупреждение",
+	en: "Warning" };
+const msgMultipleEntriesDescription = {
+	ru: "Выбранные картинки встречаются в открытых документах несколько раз.\n\nМожно обработать только выбранные в документе картинки, проигнорировав остальные вхождения, а можно и учесть их при обработке.",
+	en: "Selected images are placed more than once in opened documents.\n\nIt is possible to process only images, selected in document, by ignoring other entries, or to process all instances." };
+const msgMultipleEntriesRadioButtonSingle = {
+	ru: "Обработать только выбранные картинки",
+	en: "Process only selected images" };
+const msgMultipleEntriesRadioButtonMultiple = {
+	ru: "Обработать все картинки",
+	en: "Process all images" };
 const msgErrorSavingPreferences = {
 	ru: "Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.",
 	en: "Error saving preferences.\nIn general, this should not happen, so just in case the further execution of the script is canceled." };
@@ -787,7 +799,7 @@ function analyseGraphics() {
 // ------------------------------------------------------
 function displayPreferences() {
 	// Собираем диалоговое окно
-	var myDialog = new Window("dialog", localize(msgPreferences));
+	var preferencesDialog = new Window("dialog", localize(msgPreferences));
 	
 	// Флаги
 	var myFlagChangeFormat = false;
@@ -855,9 +867,9 @@ function displayPreferences() {
 	var myCircleRedImage = ScriptUI.newImage(myCircleRedFile);
 	
 	// Поехали
-	myDialog.orientation = "column";
+	preferencesDialog.orientation = "column";
 	
-	var myUpperGroup = myDialog.add("group");
+	var myUpperGroup = preferencesDialog.add("group");
 	myUpperGroup.orientation = "row";
 	myUpperGroup.alignChildren = ["fill", "fill"];
 	
@@ -969,7 +981,7 @@ function displayPreferences() {
 				preferences[kPrefsProcessPhotoshopEPS] = myProcessPhotoshopEPS.value;
 				if (!flagEPSScanned) {
 					graphics = new myDictionary();
-					myDialog.close(3);
+					preferencesDialog.close(3);
 				} else {
 					interfaceItemsChanged();
 				}
@@ -1479,6 +1491,55 @@ function displayPreferences() {
 		}
 	}
 	
+	// Обобщим данные по картинкам
+	function summarizeImagesData() {
+		for (var grc in selectedGraphics) {
+			
+			// получим самое низкое разрешение и самый высокий процент для каждой картинки списка
+			var myFirstItem = true;
+			
+			for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
+				var myLowestDPI = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI];
+				var myMaxPercentage = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage];
+				
+				if ((myLowestDPI < selectedGraphics[grc][kGraphicsLowestDPI]) || myFirstItem) { selectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI }
+				if ((myMaxPercentage > selectedGraphics[grc][kGraphicsMaxPercentage]) || myFirstItem) { selectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage }
+				myFirstItem = false;
+			}
+			
+			// выясним, необходим ли пересчёт разрешения при выбранных настройках
+			if (selectedGraphics[grc][kGraphicsBitmap]) {
+				// ч/б картинка
+				selectedGraphics[grc][kGraphicsResample] = (
+					(preferences[kPrefsProcessBitmaps]) && (
+						(
+							// низкое dpi ч/б
+							(preferences[kPrefsBitmapUpsample]) &&
+							(isGraphicBitmapDPILow(selectedGraphics[grc][kGraphicsLowestDPI]))
+						) || (
+							// высокое dpi ч/б
+							(preferences[kPrefsBitmapDownsample]) &&
+							(isGraphicBitmapDPIHigh(selectedGraphics[grc][kGraphicsLowestDPI]))
+						)
+					)
+				);
+			} else {
+				// цветная картинка
+				selectedGraphics[grc][kGraphicsResample] = (
+					(
+						// низкое dpi цвета
+						(preferences[kPrefsColorUpsample]) &&
+						(isGraphicColorDPILow(selectedGraphics[grc][kGraphicsLowestDPI]))
+					) || (
+						// высокое dpi цвета
+						(preferences[kPrefsColorDownsample]) &&
+						(isGraphicColorDPIHigh(selectedGraphics[grc][kGraphicsLowestDPI]))
+					)
+				);
+			}
+		}
+	}
+	
 	// Отфильтруем картинки для обработки
 	function filterGraphics() {
 		
@@ -1581,51 +1642,7 @@ function displayPreferences() {
 		}
 		
 		// обобщим собранные данные по картинкам
-		for (var grc in selectedGraphics) {
-			
-			// получим самое низкое разрешение и самый высокий процент для каждой картинки списка
-			var myFirstItem = true;
-			
-			for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
-				var myLowestDPI = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI];
-				var myMaxPercentage = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage];
-				
-				if ((myLowestDPI < selectedGraphics[grc][kGraphicsLowestDPI]) || myFirstItem) { selectedGraphics[grc][kGraphicsLowestDPI] = myLowestDPI }
-				if ((myMaxPercentage > selectedGraphics[grc][kGraphicsMaxPercentage]) || myFirstItem) { selectedGraphics[grc][kGraphicsMaxPercentage] = myMaxPercentage }
-				myFirstItem = false;
-			}
-			
-			// выясним, необходим ли пересчёт разрешения при выбранных настройках
-			if (selectedGraphics[grc][kGraphicsBitmap]) {
-				// ч/б картинка
-				selectedGraphics[grc][kGraphicsResample] = (
-					(preferences[kPrefsProcessBitmaps]) && (
-						(
-							// низкое dpi ч/б
-							(preferences[kPrefsBitmapUpsample]) &&
-							(isGraphicBitmapDPILow(selectedGraphics[grc][kGraphicsLowestDPI]))
-						) || (
-							// высокое dpi ч/б
-							(preferences[kPrefsBitmapDownsample]) &&
-							(isGraphicBitmapDPIHigh(selectedGraphics[grc][kGraphicsLowestDPI]))
-						)
-					)
-				);
-			} else {
-				// цветная картинка
-				selectedGraphics[grc][kGraphicsResample] = (
-					(
-						// низкое dpi цвета
-						(preferences[kPrefsColorUpsample]) &&
-						(isGraphicColorDPILow(selectedGraphics[grc][kGraphicsLowestDPI]))
-					) || (
-						// высокое dpi цвета
-						(preferences[kPrefsColorDownsample]) &&
-						(isGraphicColorDPIHigh(selectedGraphics[grc][kGraphicsLowestDPI]))
-					)
-				);
-			}
-		}
+		summarizeImagesData();
 		
 		// наполним список картинок
 		for (var grc in selectedGraphics) {
@@ -1647,7 +1664,7 @@ function displayPreferences() {
 	}
 
 	// Группа элементов контроля (круто, да?)
-	var myControlGroup = myDialog.add("group");
+	var myControlGroup = preferencesDialog.add("group");
 	with (myControlGroup) {
 		orientation = "row";
 		alignment = ["fill", "top"];
@@ -1664,7 +1681,7 @@ function displayPreferences() {
 		myLocaleDropdown.onChange = function () {
 			preferences[kPrefsLocale] = myLocaleDropdown.selection[kListItemObject];
 			$.locale = preferences[kPrefsLocale];
-			myDialog.close(3);
+			preferencesDialog.close(3);
 		}
 		
 		// группа кнопок диалогового окна
@@ -1676,7 +1693,7 @@ function displayPreferences() {
 			var myCancelButton = add("button", undefined, localize(msgCancel), {name: "cancel"});
 			var myOKButton = add("button", undefined, localize(msgOK), {name: "ok"});
 			myOKButton.onClick = function () {
-				if (myOKButton.enabled) myDialog.close(1);
+				if (myOKButton.enabled) preferencesDialog.close(1);
 			}
 		}
 	}
@@ -1716,24 +1733,25 @@ function displayPreferences() {
 	myScopeButtonClicked();
 
 	// Показать диалог
-	var myDialogResult = myDialog.show();
+	var preferencesDialogResult = preferencesDialog.show();
 	
 	// Удалить временные файлы
 	myCircleGreenFile.remove();
 	myCircleRedFile.remove();
 	
+	// Сохранить настройки
+	savePreferences();
+	
 	// Отработать варианты завершения диалога
-	switch (myDialogResult) {
+	switch (preferencesDialogResult) {
 		case 1:
 			// OK
-			savePreferences();
 			break;
 		case 2:
 			// Cancel
 			return false;
 		case 3:
 			// Смена языка или рескан EPSов
-			savePreferences();
 			flagRestart = true;
 			return false;
 	}
@@ -1749,6 +1767,77 @@ function displayPreferences() {
 		}
 		if (!isSelected) {
 			delete selectedGraphics[grc];
+		}
+	}
+	
+	// Уточнить при области действия в "только выбранные", нужно ли обрабатывать другие вхождения
+	if (preferences[kPrefsScope] = kScopeSelectedImages) {
+		// пройдёмся по всем выбранным в списке
+		var flagMultipleEntries = false;
+		for (var grc in selectedGraphics) {
+			if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphics[grc][kGraphicsObjectList])) {
+				flagMultipleEntries = true;
+				break;
+			}
+		}
+		
+		// выбранные в документе присутствуют неоднократно?
+		if (flagMultipleEntries) {
+			
+			// спросим, что делать
+			var multipleEntriesDialog = new Window("dialog", localize(msgWarning));
+			
+			var radioButtonSingle;
+			var radioButtonMultiple;
+			
+			with (multipleEntriesDialog) {
+				orientation = "column";
+				alignChildren = ["fill", "top"];
+				preferredSize.width = mySubControlWidth;
+				
+				with (add("statictext", undefined, localize(msgMultipleEntriesDescription), {multiline: true})) {
+					margins = mySubPanelMargins;
+				}
+				
+				with (add("group")) {
+					orientation = "column";
+					alignChildren = ["left", "top"];
+					margins = mySubPanelMargins;
+					radioButtonSingle = add("radiobutton", undefined, localize(msgMultipleEntriesRadioButtonSingle));
+					radioButtonMultiple = add("radiobutton", undefined, localize(msgMultipleEntriesRadioButtonMultiple));
+					radioButtonSingle.value = true;
+				}
+				
+				with (add("group")) {
+					orientation = "row";
+					alignChildren = ["right", "top"];
+					margins = mySubPanelMargins;
+					add("button", undefined, localize(msgCancel), {name: "cancel"});
+					add("button", undefined, localize(msgOK), {name: "ok"});					
+				}
+			}
+			
+			var multipleEntriesDialogResult = multipleEntriesDialog.show();
+			
+			// отмена?
+			if (multipleEntriesDialogResult == 2) {
+				return false;
+			}
+			
+			// решено обрабатывать с учётом всех вхождений?
+			if (radioButtonMultiple.value) {
+				// заменим все неполные вхождения на полные
+				for (var grc in selectedGraphics) {
+					if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphics[grc][kGraphicsObjectList])) {
+						for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
+							delete selectedGraphics[grc][kGraphicsObjectList][itm];
+						}
+						delete selectedGraphics[grc];
+						selectedGraphics[grc] = cloneDictionary(graphics[grc]);
+					}
+				}
+				summarizeImagesData();
+			}
 		}
 	}
 	
