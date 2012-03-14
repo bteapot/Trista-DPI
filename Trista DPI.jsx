@@ -4,6 +4,8 @@
 // Студия КолорБокс
 // denis@boxcolor.ru
 // www.boxcolor.ru
+//
+// https://github.com/bteapot/Trista-DPI
 // -----------------------------------------------------------------------------------
 
 #target indesign
