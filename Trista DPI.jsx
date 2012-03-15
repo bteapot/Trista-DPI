@@ -19,6 +19,9 @@ const kLocalesList = [
 const msgCheckingOpenedDocumentsStatus = {
 	ru: "ПРОВЕРКА ОТКРЫТЫХ ДОКУМЕНТОВ",
 	en: "CHECKING OPENED DOCUMENTS" };
+const msgRestoringBackup = {
+	ru: "ВОССТАНОВЛЕНИЕ РЕЗЕРВНОЙ КОПИИ",
+	en: "RESTORING BACKUP" };
 const msgCheckingImagesStatus = {
 	ru: "ПРОВЕРКА КАРТИНОК",
 	en: "CHECKING IMAGES" };
@@ -49,9 +52,30 @@ const msgOK = {
 const msgCancel = {
 	ru: "Отмена",
 	en: "Cancel" };
-const msgCantWorkInSuchConditions = {
-	ru: "Невозможно работать в таких условиях.\nДля начала откройте хотя бы один документ, что-ли.",
-	en: "Unable to work in such conditions.\nOpen at least one document to proceed." };
+const msgNoDocumentsOpen = {
+	ru: "Не открыт ни один документ.\nДля работы скрипта необходимо, чтобы были открыты один или несколько документов.\n\nМожно тихо-спокойно прекратить работу скрипта, а можно восстановить ранее сделанную резервную копию.",
+	en: "No documents opened.\nOne or more documents should be opened to proceed.\n\nIt is possible to terminate script now, or to restore previous backup." };
+const msgChooseBackupFolderToRestoreFrom = {
+	ru: "Выберите папку, из которой будем восстанавливать резервную копию.",
+	en: "Choose backup folder to restore from" };
+const msgLogFileOpenError = {
+	ru: "Ошибка при открытии log-файла этой резервной копии.\nУбедитесь, что выбранная папка содержит ранее сделанную резервную копию и попробуйте ещё раз.",
+	en: "Error opening log-file.\nEnsure that selected folder contains previously made backup and try again." };
+const msgLogFileStructureError = {
+	ru: "Выбранная резервная копия не была завершена.\nИз соображений безопасности автоматическое восстановление этой резервной копии проводится не будет. Лучше ручками.",
+	en: "Selected backup was not completed correctly.\nAutomatic recovery of this backup will not be performed for security reasons. Try to do it manually." };
+const msgReplaceFilesWarning = {
+	ru: "Файлы резервной копии будут восстановлены по указанным ниже адресам.\n\nФайлы, находящиеся там в данный момент, будут необратимо заменены.\n\nПродолжить?",
+	en: "Files from selected backup will be restored to URLs listed below.\n\nFiles that resides there now will be replaced.\n\nContinue?" };
+const msgErrorRestoringBackupFile = {
+	ru: "Ошибка при восстановлении файла.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
+	en: "Error restoring file.\n%1\n\nCheck permissions, free space, etc." };
+const msgErrorOpeningBackupDocument = {
+	ru: "Ошибка при открытии документа из восстановленной резервной копии.\nЭто может быть связано с тем, что документ был создан в более новой версии InDesign.",
+	en: "Error opening restored document.\n.It possibly was created by newer version of InDesign." };
+const msgRestorationDone = {
+	ru: "Резервная копия восстановлена.\nВосстановленный документ открыт в InDesign.",
+	en: "Backup restored.\nRestored document are opened in Indesign." };
 const msgConfirmDocumentSave = {
 	ru: "Документ %1 изменён с момента последнего сохранения.\nЧтобы документ можно было обработать, его необходимо сохранить.\n\nСохранить?",
 	en: "Document %1 was changed since last save.\nThis document needs be saved to be processed. Save document?" };
@@ -136,12 +160,6 @@ const msgWarning = {
 const msgMultipleEntriesDescription = {
 	ru: "Выбранные картинки встречаются в открытых документах несколько раз.\n\nМожно обработать только выбранные в документе картинки, проигнорировав остальные вхождения, а можно и учесть их при обработке.",
 	en: "Selected images are placed more than once in opened documents.\n\nIt is possible to process only images, selected in document, by ignoring other entries, or to process all instances." };
-const msgMultipleEntriesRadioButtonSingle = {
-	ru: "Обработать только выбранные картинки",
-	en: "Process only selected images" };
-const msgMultipleEntriesRadioButtonMultiple = {
-	ru: "Обработать все картинки",
-	en: "Process all images" };
 const msgErrorSavingPreferences = {
 	ru: "Ошибка при сохранении настроек.\nВообще такого не должно было случиться, поэтому на всякий случай дальнейшее выполнение скрипта отменяется.",
 	en: "Error saving preferences.\nIn general, this should not happen, so just in case the further execution of the script is canceled." };
@@ -174,7 +192,7 @@ const msgImagesToProcess = {
 	en: "Images to process" };
 
 // Объект-словарь
-function myDictionary() {
+function dictionary() {
 	
 }
 
@@ -193,11 +211,11 @@ var tempFolder;
 var smallFont;
 var headerColor = [0.1, 0.1, 0.1];
 
-var documents = new myDictionary();
-var documentSelection = new myDictionary();
-var graphics = new myDictionary();
-var selectedGraphics = new myDictionary();
-var folders = new myDictionary();
+var documents = new dictionary();
+var documentSelection = new dictionary();
+var graphics = new dictionary();
+var selectedGraphics = new dictionary();
+var folders = new dictionary();
 var activeDocument;
 
 var flagStopExecution = false;
@@ -315,8 +333,37 @@ const kChangeFormatToOptions = [
 		ru: "Сохранять как PSD",
 		en: "Save as PSD" }]];
 
+const kMultipleEntriesSingle = 0;
+const kMultipleEntriesMultiple = 1;
+const kMultipleEntriesOptions = [
+	[kMultipleEntriesSingle, {
+		ru: "Обработать только выбранные картинки",
+		en: "Process only selected images" }],
+	[kMultipleEntriesMultiple, {
+		ru: "Обработать все картинки",
+		en: "Process all images" }]];
+
+const kNoDocumentsOpenExit = 0;
+const kNoDocumentsOpenRestoreBackup = 1;
+const kNoDocumentsOpenOptions = [
+	[kNoDocumentsOpenExit, {
+		ru: "Завершить работу скрипта",
+		en: "Terminate script" }],
+	[kNoDocumentsOpenRestoreBackup, {
+		ru: "Восстановить резервную копию",
+		en: "Restore backup" }]];
+
+const kStatusPanelWidth = 300;
+const kDialogPanelWidth = 400;
+const kServiceDialogSize = [400, 200];
+const kDialogSubPanelMargins = [14, 14, 10, 10];
+const kDialogSubControlMargins = [18, 0, 0, 0];
+const kDialogSubControlWidth = 300;
+
 var appSettingsPreserveBounds;
 var appSettingsPreserveLocale;
+
+
 
 
 main();
@@ -337,6 +384,7 @@ function process() {
 	
 	if (!initialSettings()) return;
 	if (!makeStatusWindow()) return;
+	if (!restoreBackup()) return;
 	if (!checkDocuments()) return;
 	if (!analyseGraphics()) return;
 	if (!displayPreferences()) return;
@@ -426,22 +474,21 @@ function initialSettings() {
 	// Загрузить настройки
 	var preferencesFile = new File(preferencesFileName);
 	if (preferencesFile.exists) {
-		var preferencesFile = new File(preferencesFileName);
 		if (preferencesFile.open("r")) {
 			var preferencesArray = preferencesFile.read(preferencesFile.length).split("\n");
-			var myPreferenceRecord = [];
+			var preferenceRecord = [];
 			
-			for (var prf = 0; prf < preferencesArray.length; prf++) {
-				myPreferenceRecord = preferencesArray[prf].split("\t");
+			for (var prf in preferencesArray) {
+				preferenceRecord = preferencesArray[prf].split("\t");
 				
 				// Грузим только известные науке настройки, чтобы не захламлять файл с преференсами
-				if (preferences.hasOwnProperty(myPreferenceRecord[0])) {
-					if (myPreferenceRecord[1] == "boolean") {
-						preferences[myPreferenceRecord[0]] = (myPreferenceRecord[2] == "true");
-					} else if (myPreferenceRecord[1] == "number") {
-						preferences[myPreferenceRecord[0]] = Number(myPreferenceRecord[2]);
+				if (preferences.hasOwnProperty(preferenceRecord[0])) {
+					if (preferenceRecord[1] == "boolean") {
+						preferences[preferenceRecord[0]] = (preferenceRecord[2] == "true");
+					} else if (preferenceRecord[1] == "number") {
+						preferences[preferenceRecord[0]] = Number(preferenceRecord[2]);
 					} else {
-						preferences[myPreferenceRecord[0]] = myPreferenceRecord[2];
+						preferences[preferenceRecord[0]] = preferenceRecord[2];
 					}
 				}
 			}
@@ -465,8 +512,6 @@ function makeStatusWindow() {
 	// Уже сделано?
 	if (statusWindow != undefined) return true;
 	
-	var myPanelWidth = 300;
-	
 	// Собираем палитру
 	statusWindow = new Window("palette", localize(msgExecution));
 	statusWindow.orientation = "row";
@@ -478,14 +523,14 @@ function makeStatusWindow() {
 	// Область отображения статусных данных
 	var myDisplayZone = statusWindow.add("group");
 	myDisplayZone.orientation = "column";
-	myDisplayZone.minimumSize.width = myPanelWidth;
-	myDisplayZone.maximumSize.width = myPanelWidth;
+	myDisplayZone.minimumSize.width = kStatusPanelWidth;
+	myDisplayZone.maximumSize.width = kStatusPanelWidth;
 	myDisplayZone.alignChildren = ["fill", "top"];
 	
 	// Элементы статусных данных
 	
 	// Фаза
-	statusWindowPhase = myDisplayZone.add("statictext", undefined, ".");
+	statusWindowPhase = myDisplayZone.add("statictext", undefined, "\u00A0");
 	statusWindowPhase.minimumSize.height = 30;
 	statusWindowPhase.alignment = ["fill", "top"];
 	statusWindowPhase.justify = "left";
@@ -493,7 +538,7 @@ function makeStatusWindow() {
 	statusWindowPhase.graphics.foregroundColor = statusWindowPhase.graphics.newPen(statusWindowPhase.graphics.PenType.SOLID_COLOR, headerColor, 1);
 	
 	// Объект и градусник
-	statusWindowObject = myDisplayZone.add("statictext", undefined, ".");
+	statusWindowObject = myDisplayZone.add("statictext", undefined, "\u00A0");
 	statusWindowObject.alignment = ["fill", "top"];
 	statusWindowObject.justify = "left";
 	statusWindowObject.graphics.font = smallFont;
@@ -527,6 +572,7 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	
 	// Отрисуем окошко
 	//statusWindow.layout.layout(true);
+	app.cascadeWindows();
 }
 
 // Спрячем окно с градусником
@@ -542,14 +588,169 @@ function hideStatus() {
 	statusWindow.hide();
 }
 
+// Восстановим ранее сохранённую резервную копию
+// ------------------------------------------------------
+function restoreBackup() {
+	// работаем только если не открыт ни один документ
+	if (app.documents.length > 0) return true;
+	
+	// спросим, выйти или восстановить бэкап
+	var decisionResult = askForDecision(msgWarning, msgNoDocumentsOpen, kNoDocumentsOpenOptions, kNoDocumentsOpenExit);
+	
+	if (decisionResult == kNoDocumentsOpenRestoreBackup) {
+		// получим папку с бэкапом
+		var backupFolder = new Folder(preferences[kPrefsBackupFolder]);
+		backupFolder = backupFolder.selectDlg(localize(msgChooseBackupFolderToRestoreFrom));
+		if (backupFolder == null) return false;
+		
+		// откроем лог
+		var logFile = new File(backupFolder.fullName + "/" + kLogFileName);
+		if (!logFile.open("r")) {
+			alert(localize(msgLogFileOpenError));
+			return false;
+		}
+		
+		// прочтём лог
+		var logArray = logFile.read(logFile.length).split("\n");
+		
+		// закроем лог-файл
+		logFile.close();		
+		
+		// разберём записи лога
+		var log = new dictionary();
+		var logRecord;
+		
+		for (var itm in logArray) {
+			if (logArray[itm] != "") {
+				logRecord = logArray[itm].split("\t");
+				if (logRecord.length != 2) {
+					alert(localize(msgLogFileStructureError));
+					return false;
+				}
+				log[logRecord[0]] = logRecord[1];
+			}
+		}
+		
+		// резервное копирование было завершено штатно?
+		if (log[kLogFileEND] != kLogFileEND) {
+			alert(localize(msgLogFileStructureError));
+			return false;
+		}
+		delete log[kLogFileEND];
+		
+		// последнее предупреждение
+		var lastWarningDialog = new Window("dialog", localize(msgWarning));
+		with (lastWarningDialog) {
+			orientation = "column";
+			alignChildren = ["fill", "top"];
+			preferredSize = kServiceDialogSize;
+			
+			with (add("statictext", undefined, localize(msgReplaceFilesWarning), {multiline: true})) {
+				alignment = "fill";
+			}
+			
+			var itemsList = add("listbox", undefined, undefined, {multiselect:true, numberOfColumns:1, showHeaders:false});
+			with (itemsList) {
+				alignment = ["fill", "fill"];
+				maximumSize = [kServiceDialogSize[0] + 200 - kDialogSubPanelMargins[2] - kDialogSubPanelMargins[3], 350];
+				minimumSize = [kServiceDialogSize[0] - kDialogSubPanelMargins[2] - kDialogSubPanelMargins[3], 350];
+				
+				for (var itm in log) {
+					itemsList.add("item", File.decode(log[itm]));
+				}
+			}
+			
+			with (add("group")) {
+				alignChildren = ["fill", "fill"];
+				margins = kDialogSubPanelMargins;
+				
+				with (add("panel")) {
+					orientation = "column";
+					alignChildren = ["left", "top"];
+					margins = kDialogSubPanelMargins;
+				}
+			}
+			
+			with (add("group")) {
+				orientation = "row";
+				alignChildren = ["right", "top"];
+				margins = kDialogSubPanelMargins;
+				
+				add("button", undefined, localize(msgCancel), {name: "cancel"});
+				add("button", undefined, localize(msgOK), {name: "ok"});					
+			}
+		}
+		
+		// отмена?
+		if (lastWarningDialog.show() == 2) return false;
+		
+		// поехали
+		showStatus(localize(msgRestoringBackup), "", 0, dictionaryLength(log));
+		
+		var sourceFile;
+		for (var itm in log) {
+			sourceFile = new File(backupFolder.fullName + "/" + File.decode(itm));
+			
+			showStatus(undefined, File.decode(sourceFile.name), statusWindowGauge.value + 1, undefined);
+			
+			if (!sourceFile.copy(log[itm])) {
+				alert(localize(msgErrorRestoringBackupFile, File.decode(sourceFile.name)));
+				return false;
+			}
+			
+			if (flagStopExecution) return false;
+		}
+		
+		showStatus(undefined, undefined, dictionaryLength(log), undefined);
+		hideStatus();
+		
+		// откроем восстановленный документ в InDesign
+		app.scriptPreferences.userInteractionLevel = UserInteractionLevels.NEVER_INTERACT;
+		try {
+			var restoredDocument = app.open(new File(logArray[0].split("\t")[1]));
+		} catch (e) {
+			alert(localize(msgErrorOpeningBackupDocument));
+			return false;
+		}
+		app.scriptPreferences.userInteractionLevel = UserInteractionLevels.INTERACT_WITH_ALL;
+		
+		// обновим линки (ибо где тот способ в яваскрипт, что позволял бы выставить даты создания и изменения?)
+		showStatus(localize(msgRelinkingImagesStatus), "", 0, restoredDocument.links.length);
+		
+		var linkedFile;
+		for (var lnk = 0; lnk < restoredDocument.links.length; lnk++) {
+			
+			linkedFile = new File(restoredDocument.links[lnk].filePath);
+			
+			showStatus(undefined, undefined, statusWindowGauge.value + 1, undefined);
+			
+			for (var itm in log) {
+				if (log[itm] == File.encode(linkedFile.fullName)) {
+					showStatus(undefined, File.decode(linkedFile.name), undefined, undefined);
+					restoredDocument.links[lnk].update();
+					break;
+				}
+			}
+			
+			if (flagStopExecution) return false;
+		}
+		
+		showStatus(undefined, undefined, restoredDocument.links.length, undefined);
+		hideStatus();
+		
+		restoredDocument.save();
+		
+		// доложимся, что, мол, всё готово
+		alert(localize(msgRestorationDone));
+	}
+	
+	// выходим из скрипта
+	return false;
+}
+
 // Проверим открытые документы
 // ------------------------------------------------------
 function checkDocuments() {
-	if (app.documents.length == 0) {
-		alert(localize(msgCantWorkInSuchConditions));
-		return false;
-	}
-	
 	// Уже сделано?
 	if (dictionaryLength(documents) > 0) return true;
 	
@@ -687,7 +888,7 @@ function analyseGraphics() {
 			// Проверим, не попадался уже ли этот файл
 			if (!(grc in graphics)) {
 				// Не попадался, добавим первое вхождение
-				graphics[grc] = new myDictionary();
+				graphics[grc] = new dictionary();
 				graphics[grc][kGraphicsName] = myGraphic.itemLink.name;
 				graphics[grc][kGraphicsFormat] = graphicFormat(myGraphic);
 				graphics[grc][kGraphicsResample] = false;
@@ -696,7 +897,7 @@ function analyseGraphics() {
 				graphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
 				graphics[grc][kGraphicsHasClippingPath] = false;
 				graphics[grc][kGraphicsOnMaster] = false;
-				graphics[grc][kGraphicsObjectList] = new myDictionary();
+				graphics[grc][kGraphicsObjectList] = new dictionary();
 				
 				// Проверка read-only
 				var myFile = new File(myGraphic.itemLink.filePath);
@@ -707,7 +908,7 @@ function analyseGraphics() {
 			// Добавим в список это вхождение
 			var itm = myGraphic.id;
 			
-			graphics[grc][kGraphicsObjectList][itm] = new myDictionary();
+			graphics[grc][kGraphicsObjectList][itm] = new dictionary();
 			graphics[grc][kGraphicsObjectList][itm][kGraphicsObject] = myGraphic;
 			graphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentID(documentOfGraphic(myGraphic));
 			graphics[grc][kGraphicsObjectList][itm][kGraphicsParentPage] = pageOfGraphic(myGraphic);
@@ -807,12 +1008,6 @@ function displayPreferences() {
 	var myFlagChangeFormat = false;
 	var myFlagResample = false;
 	
-	// Константы
-	var myPanelWidth = 400;
-	var mySubPanelMargins = [14, 14, 10, 10];
-	var mySubControlMargins = [18, 0, 0, 0];
-	var mySubControlWidth = 300;
-	
 	// Картинки интерфейса
 	var myCircleGreenData = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDoAABSCAABFVgAADqXAAAXb9daH5AAAACLSURBVHja1NK9CQJBEIbhZ8X8arAEc8HISLATwQ7kChAEO7n0UnNL2A6Eq2BNVjiOuw0WDPxggvl5YeZjQkpJjVYqVQ2ux0loA2xwxy6Xn7ggpmuaBzP0QjOqnbDHFnFp1dsE+qrBo3TjsXDW4Seu9oXZvgSeMcxAQ+4tgjG71+Gdo5s6CuF/Xu4zALGGGhU58X7YAAAAAElFTkSuQmCC";
 	var myCircleRedData = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDoAABSCAABFVgAADqXAAAXb9daH5AAAACNSURBVHja1NIxCgIxEIXhL7L9nmGPYC9YWQmW3kLwIoLgLSy33dbeI+wNhD1BbCKE4KZYsPDBFJnkH/IeE2KMlmhloRaDTX64hwAdrtik9gNnjMfMVlMM6vBEm/UO2GKNce6rlwL6qMWt5nFfsbX7SapD5e1QA0+YvkBTupsFx5Rej1eqvkwUwv+s3HsAtqYaFURyO9gAAAAASUVORK5CYII=";
@@ -880,15 +1075,15 @@ function displayPreferences() {
 	
 	var myParametersGroup = myCommonGroup.add("group");
 	myParametersGroup.orientation = "column";
-	myParametersGroup.minimumSize.width = myPanelWidth;
+	myParametersGroup.minimumSize.width = kDialogPanelWidth;
 	myParametersGroup.alignChildren = ["fill", "top"];
 	
 	// Группа общих настроек
 	with (myParametersGroup.add("panel", undefined, localize(msgCommonParameters))) {
 		orientation = "column";
-		minimumSize.width = myPanelWidth;
+		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "top"];
-		margins = mySubPanelMargins;
+		margins = kDialogSubPanelMargins;
 		
 		// Обработка битмапов
 		var myProcessBitmaps = add("checkbox", undefined, localize(msgProcessBitmaps));
@@ -909,9 +1104,9 @@ function displayPreferences() {
 	// Группа изменения формата
 	with (myParametersGroup.add("panel", undefined, localize(msgFormatOfImages))) {
 		orientation = "column";
-		minimumSize.width = myPanelWidth;
+		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "top"];
-		margins = mySubPanelMargins;
+		margins = kDialogSubPanelMargins;
 		
 		var myChangeFormatOfGroup = add("group");
 		with (myChangeFormatOfGroup) {
@@ -944,7 +1139,7 @@ function displayPreferences() {
 		with (myChangeFormatParametersGroup) {
 			orientation = "column";
 			alignChildren = ["fill", "top"];
-			margins = mySubControlMargins;
+			margins = kDialogSubControlMargins;
 			
 			var myChangeFormatToDropdown = add("dropdownlist");
 			for (var itm = 0; itm < kChangeFormatToOptions.length; itm++) {
@@ -963,7 +1158,7 @@ function displayPreferences() {
 			with (myPSDOptionsGroup) {
 				orientation = "column";
 				alignChildren = ["left", "top"];
-				margins = mySubControlMargins;
+				margins = kDialogSubControlMargins;
 				
 				var myMakeLayerFromBackground = add("checkbox", undefined, localize(msgBackgroundLayerToNormalLayer));
 				myMakeLayerFromBackground.onClick = function() {
@@ -982,7 +1177,7 @@ function displayPreferences() {
 			myProcessPhotoshopEPS.onClick = function() {
 				preferences[kPrefsProcessPhotoshopEPS] = myProcessPhotoshopEPS.value;
 				if (!flagEPSScanned) {
-					graphics = new myDictionary();
+					graphics = new dictionary();
 					preferencesDialog.close(3);
 				} else {
 					interfaceItemsChanged();
@@ -1001,9 +1196,9 @@ function displayPreferences() {
 	// Группа изменения разрешения
 	with (myParametersGroup.add("panel", undefined, localize(msgChangeResolution))) {
 		orientation = "column";
-		minimumSize.width = myPanelWidth;
+		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["left", "center"];
-		margins = mySubPanelMargins;
+		margins = kDialogSubPanelMargins;
 		
 		// Цветные изображения
 		var myColorAndGrayscaleGraphicsGroup = add("group");
@@ -1014,7 +1209,7 @@ function displayPreferences() {
 			with (add("group")) {
 				orientation = "row";
 				alignChildren = ["right", "center"];
-				minimumSize.width = myPanelWidth / 3;
+				minimumSize.width = kDialogPanelWidth / 3;
 				
 				with (add("statictext", undefined, localize(msgColorAndGrayscale))) {
 					justify = "right";
@@ -1102,7 +1297,7 @@ function displayPreferences() {
 			with (add("group")) {
 				orientation = "row";
 				alignChildren = ["right", "center"];
-				minimumSize.width = myPanelWidth / 3;
+				minimumSize.width = kDialogPanelWidth / 3;
 				
 				with (add("statictext", undefined, localize(msgBitmap))) {
 					justify = "right";
@@ -1190,7 +1385,7 @@ function displayPreferences() {
 			with (add("group")) {
 				orientation = "row";
 				alignChildren = ["right", "center"];
-				minimumSize.width = myPanelWidth / 3;
+				minimumSize.width = kDialogPanelWidth / 3;
 				
 				with (add("statictext", undefined, localize(msgMethod))) {
 					justify = "right";
@@ -1212,9 +1407,9 @@ function displayPreferences() {
 	var myScopeGroup = myParametersGroup.add("panel", undefined, localize(msgScope));
 	with (myScopeGroup) {
 		orientation = "row";
-		minimumSize.width = myPanelWidth;
+		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "fill"];
-		margins = mySubPanelMargins;
+		margins = kDialogSubPanelMargins;
 	}
 	
 	var myScopeControlGroup = myScopeGroup.add("group");
@@ -1375,9 +1570,9 @@ function displayPreferences() {
 	// Группа резервного копирования
 	with (myParametersGroup.add("panel", undefined, localize(msgBackup))) {
 		orientation = "column";
-		minimumSize.width = myPanelWidth;
+		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "top"];
-		margins = mySubPanelMargins;
+		margins = kDialogSubPanelMargins;
 		
 		var myDoBackup = add("checkbox", undefined, localize(msgDoBackup));
 		myDoBackup.onClick = function() {
@@ -1389,7 +1584,7 @@ function displayPreferences() {
 		var myBackupGroup = add("group");
 		myBackupGroup.orientation = "column";
 		myBackupGroup.alignChildren = ["fill", "top"];
-		myBackupGroup.margins = mySubControlMargins;
+		myBackupGroup.margins = kDialogSubControlMargins;
 
 		
 		with (myBackupGroup.add("group")) {
@@ -1397,7 +1592,7 @@ function displayPreferences() {
 			alignChildren = ["fill", "top"];
 			
 			var myBackupPath = add("edittext", undefined, Folder.decode(preferences[kPrefsBackupFolder]));
-			myBackupPath.preferredSize.width = mySubControlWidth;
+			myBackupPath.preferredSize.width = kDialogSubControlWidth;
 			myBackupPath.onChange = function() {
 				preferences[kPrefsBackupFolder] = Folder.encode(myBackupPath.text);
 			}
@@ -1787,47 +1982,13 @@ function displayPreferences() {
 		if (flagMultipleEntries) {
 			
 			// спросим, что делать
-			var multipleEntriesDialog = new Window("dialog", localize(msgWarning));
-			
-			var radioButtonSingle;
-			var radioButtonMultiple;
-			
-			with (multipleEntriesDialog) {
-				orientation = "column";
-				alignChildren = ["fill", "top"];
-				preferredSize.width = mySubControlWidth;
-				
-				with (add("statictext", undefined, localize(msgMultipleEntriesDescription), {multiline: true})) {
-					margins = mySubPanelMargins;
-				}
-				
-				with (add("group")) {
-					orientation = "column";
-					alignChildren = ["left", "top"];
-					margins = mySubPanelMargins;
-					radioButtonSingle = add("radiobutton", undefined, localize(msgMultipleEntriesRadioButtonSingle));
-					radioButtonMultiple = add("radiobutton", undefined, localize(msgMultipleEntriesRadioButtonMultiple));
-					radioButtonSingle.value = true;
-				}
-				
-				with (add("group")) {
-					orientation = "row";
-					alignChildren = ["right", "top"];
-					margins = mySubPanelMargins;
-					add("button", undefined, localize(msgCancel), {name: "cancel"});
-					add("button", undefined, localize(msgOK), {name: "ok"});					
-				}
-			}
-			
-			var multipleEntriesDialogResult = multipleEntriesDialog.show();
+			var decisionResult = askForDecision(msgWarning, msgMultipleEntriesDescription, kMultipleEntriesOptions, kMultipleEntriesSingle);
 			
 			// отмена?
-			if (multipleEntriesDialogResult == 2) {
-				return false;
-			}
+			if (decisionResult == -1) return false;
 			
 			// решено обрабатывать с учётом всех вхождений?
-			if (radioButtonMultiple.value) {
+			if (decisionResult == kMultipleEntriesMultiple) {
 				// заменим все неполные вхождения на полные
 				for (var grc in selectedGraphics) {
 					if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphics[grc][kGraphicsObjectList])) {
@@ -1990,13 +2151,13 @@ function backupImages() {
 		// Вместе с картинками (чего уж там) сохраним и .indd документ
 		var backupDocumentName = uniqueFileName(backupFolder.fullName, cleanupPath(File.decode(myDocument.fullName.name)));
 		if (!myDocument.fullName.copy(backupDocumentName)) {
-			alert(localize(msgErrorCopyingFile, myDocument.name));
-			logFile.writeln(kLogFileERR);
+			alert(localize(msgErrorCopyingFile, File.decode(myDocument.name)));
+			logFile.write(kLogFileERR + "\n");
 			logFile.close();
 			flagStopExecution = true;
 			return;
 		}
-		logFile.writeln([myDocument.fullName, backupDocumentName].join("\t"));
+		logFile.write([File.encode(backupDocumentName.name), File.encode(new File(myDocument.fullName).fullName)].join("\t") + "\n");
 		
 		// Скопируем оригиналы картинок
 		var myBackupList = myItemObject[kDocumentsBackupList];
@@ -2012,15 +2173,15 @@ function backupImages() {
 			}
 			myFile.close();
 			if (flagStopExecution) {
-				logFile.writeln(kLogFileERR);
+				logFile.write(kLogFileEND + "\t" + kLogFileERR + "\n");
 				logFile.close();
 				return;
 			}
-			logFile.writeln([myFile.fullName, backupFileName].join("\t"));
+			logFile.write([File.encode(backupFileName.name), File.encode(myFile.fullName)].join("\t") + "\n");
 		}
 		
 		// Закроем лог-файл
-		logFile.writeln(kLogFileEND);
+		logFile.write(kLogFileEND + "\t" + kLogFileEND + "\n");
 		logFile.close();
 		
 		statusWindowGauge.value++;
@@ -2436,6 +2597,66 @@ function saveDocuments() {
 	return !flagStopExecution;
 }
 
+// Показать диалог с вариантами выбора
+// ------------------------------------------------------
+function askForDecision(headerText, descriptionText, optionsArray, defaultButton) {
+	var decisionDialog = new Window("dialog", localize(headerText));
+	
+	var radioButtons = new dictionary();
+	
+	with (decisionDialog) {
+		orientation = "column";
+		alignChildren = ["fill", "top"];
+		preferredSize = kServiceDialogSize;
+		
+		with (add("group")) {
+			orientation = "column";
+			alignChildren = ["fill", "top"];
+			margins = kDialogSubPanelMargins;
+			
+			with (add("statictext", undefined, localize(descriptionText), {multiline: true})) {
+				alignment = "fill";
+			}
+		}
+		
+		with (add("group")) {
+			alignChildren = ["fill", "fill"];
+			margins = kDialogSubPanelMargins;
+			
+			with (add("panel")) {
+				orientation = "column";
+				alignChildren = ["left", "top"];
+				margins = kDialogSubPanelMargins;
+				
+				for (var itm in optionsArray) {
+					radioButtons[itm] = add("radiobutton", undefined, localize(optionsArray[itm][1]));
+					radioButtons[itm][kListItemObject] = optionsArray[itm][0];
+					if (radioButtons[itm][kListItemObject] == defaultButton) radioButtons[itm].value = true;
+				}
+			}
+		}
+		
+		with (add("group")) {
+			orientation = "row";
+			alignChildren = ["right", "top"];
+			margins = kDialogSubPanelMargins;
+			
+			add("button", undefined, localize(msgCancel), {name: "cancel"});
+			add("button", undefined, localize(msgOK), {name: "ok"});					
+		}
+	}
+	
+	// отмена?
+	if (decisionDialog.show() == 2) {
+		return -1;
+	} else {
+		for (var itm in radioButtons) {
+			if (radioButtons[itm].value) return radioButtons[itm][kListItemObject];
+		}
+		return -1;
+	}
+}
+
 // Получить уникальный ID документа
 // ------------------------------------------------------
 function documentID(myDocument) {
@@ -2812,11 +3033,11 @@ function pageOfGraphic(myGraphic) {
 
 // Размер dictionary
 // ------------------------------------------------------
-function dictionaryLength(myDictionaryObject) {
+function dictionaryLength(dictionaryObject) {
 	var myLength = 0;
 	
-	for (var key in myDictionaryObject)
-		if (myDictionaryObject.hasOwnProperty(key)) myLength++;
+	for (var key in dictionaryObject)
+		if (dictionaryObject.hasOwnProperty(key)) myLength++;
 	return myLength;
 };
 
@@ -2879,8 +3100,8 @@ function cloneDictionary(obj) {
 	if (null == obj) return obj;
 	
 	// объект-словарь?
-	if (obj instanceof myDictionary) {
-		var copy = new myDictionary();
+	if (obj instanceof dictionary) {
+		var copy = new dictionary();
 		for (var key in obj) {
 			if (obj.hasOwnProperty(key)) {
 				copy[key] = cloneDictionary(obj[key]);
