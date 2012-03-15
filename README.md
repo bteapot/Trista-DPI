@@ -67,6 +67,8 @@
 
 Можно включить автоматическое удаление резервных копий, сделанных более месяца назад.
 
+Ранее созданные резервные копии могут быть автоматически восстановлены при запуске скрипта без открытых документов InDesign.
+
 Установка
 ---------
 
@@ -137,6 +139,8 @@ Optionally, back up copies of all changed files can be made, including the InDes
 When the file names from different folders are identical, unique number are added to file names.
 
 Backups created more than month ago can be automatically deleted if desired.
+
+Previously created backups can be automatically restored by running script with no documents open in InDesign.
 
 Installation
 ------------
