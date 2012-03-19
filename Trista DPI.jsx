@@ -31,6 +31,9 @@ const msgBackupStatus = {
 const msgDeleteOldBackupsStatus = {
 	ru: "УДАЛЕНИЕ СТАРЫХ РЕЗЕРВНЫХ КОПИЙ",
 	en: "DELETING OLD BACKUPS" };
+const msgUnembeddingImagesStatus = {
+	ru: "РАЗВНЕДРЕНИЕ ИЗОБРАЖЕНИЙ",
+	en: "UNEMBEDDING IMAGES" };
 const msgProcessingImagesStatus = {
 	ru: "ОБРАБОТКА ИЗОБРАЖЕНИЙ",
 	en: "PROCESSING IMAGES" };
@@ -88,6 +91,9 @@ const msgPreferences = {
 const msgCommonParameters = {
 	ru: "Общие параметры",
 	en: "Common parameters" };
+const msgProcessEmbedded = {
+	ru: "Развнедрять внедрённые картинки",
+	en: "Unembed embedded images" };
 const msgProcessBitmaps = {
 	ru: "Обрабатывать Bitmap",
 	en: "Process Bitmaps" };
@@ -178,6 +184,21 @@ const msgErrorCreatingBackupFolder = {
 const msgErrorCopyingFile = {
 	ru: "Ошибка при резервном копировании файла.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
 	en: "Error copying file.\n%1\n\nCheck permissions, free space, etc." };
+const msgUnembeddingOptions = {
+	ru: "Варианты развнедрения",
+	en: "Unembedding options" };
+const msgUnembeddingOptionsDescription = {
+	ru: "Внедрённые картинки можно развнедрить несколькими способами.\n\nМожно поместить все внедрённые картинки из всех документов в одну общую папку, а можно автоматически разложить картинки по папкам вида \"<имя документа> unembedded images\" рядом с файлами соответствующих документов InDesign.",
+	en: "Embedded images can be unembedded in different ways.\n\nIt is possible to put all embedded images from all documents into one folder, or automatically put images into folders like \"<name of the document> unembedded images\" next to the corresponding InDesign files." };
+const msgUnembeddingFolderPrompt = {
+	ru: "Выберите папку, в которой будут созданы развнедряемые картинки.",
+	en: "Select the folder where files will be created." };
+const msgErrorCreatingUnembeddedFolder = {
+	ru: "Ошибка при создании папки развнедрённых картинок.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
+	en: "Error creating folder for unembedded images.\n%1\n\nCheck permissions, free space, etc." };
+const msgErrorUnembeddingImage = {
+	ru: "Ошибка при развнедрении картинки.\n%1\n\nПроверьте права доступа, свободное место и т.п.",
+	en: "Error unembedding image.\n%1\n\nCheck permissions, free space, etc." };
 const msgPhotoshopNotInstalled = {
 	ru: "Не найдено ни одной версии Фотошопа, способной общаться с этой версией ИнДизайна через BridgeTalk.\nЭто лечится только установкой Фотошопа из той-же версии CS, что и ИнДизайн.",
 	en: "No Photoshop version that able to communicate with this version of InDesign through BridgeTalk found.\nThat can be corrected by installing Photoshop of the same CS version as InDesign." };
@@ -225,6 +246,7 @@ var flagOldBackupsDeleted = false;
 
 // Константы
 const kPrefsLocale = "locale";
+const kPrefsProcessEmbedded = "processEmbedded";
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
 const kPrefsChangeFormatOf = "changeFormat";
@@ -277,6 +299,8 @@ const kGraphicsLowestDPI = "graphicsLowestDPI";
 const kGraphicsMaxPercentage = "graphicsMaxPercentage";
 const kGraphicsHasClippingPath = "graphicsHasClippingPath";
 const kGraphicsOnMaster = "graphicsOnMaster";
+const kGraphicsPasted = "graphicsPasted";
+const kGraphicsEmbedded = "graphicsEmbedded";
 const kGraphicsWithinBleeds = "graphicsWithinBleeds";
 const kGraphicsObjectList = "graphicsObjectList";
 const kGraphicsObject = "graphicsObject";
@@ -295,6 +319,9 @@ const kLogFileName = "backup.log";
 const kLogFileEND = "END";
 const kLogFileERR = "ERR";
 
+const kUnembedFolderSuffix = " unembedded files";
+
+// Списки
 const kResampleBicubic = 0;
 const kResampleSmootherSharper = 1;
 const kResampleOptions = [
@@ -353,6 +380,16 @@ const kNoDocumentsOpenOptions = [
 		ru: "Восстановить резервную копию",
 		en: "Restore backup" }]];
 
+const kUnembedIntoOneFolder = 0;
+const kUnembedIntoDifferentFolders = 1;
+const kUnembedOptions = [
+	[kUnembedIntoOneFolder, {
+		ru: "В одну общую папку",
+		en: "Into one folder" }],
+	[kUnembedIntoDifferentFolders, {
+		ru: "В папки подокументно",
+		en: "Into different folders" }]];
+
 const kStatusPanelWidth = 300;
 const kDialogPanelWidth = 400;
 const kServiceDialogSize = [400, 200];
@@ -390,6 +427,7 @@ function process() {
 	if (!displayPreferences()) return;
 	if (!deleteOldBackups()) return;
 	if (!backupImages()) return;
+	if (!unembedImages()) return;
 	if (!processImages()) return;
 	if (!relinkImages()) return;
 	if (!saveDocuments()) return;
@@ -431,6 +469,7 @@ function initialSettings() {
 		}
 	}
 	
+	preferences[kPrefsProcessEmbedded] = false;
 	preferences[kPrefsProcessBitmaps] = false;
 	preferences[kPrefsLeaveGraphicsOpen] = false;
 	
@@ -572,7 +611,6 @@ function showStatus(myPhase, myObject, myGaugeCurrent, myGaugeMax) {
 	
 	// Отрисуем окошко
 	//statusWindow.layout.layout(true);
-	app.cascadeWindows();
 }
 
 // Спрячем окно с градусником
@@ -657,17 +695,6 @@ function restoreBackup() {
 				
 				for (var itm in log) {
 					itemsList.add("item", File.decode(log[itm]));
-				}
-			}
-			
-			with (add("group")) {
-				alignChildren = ["fill", "fill"];
-				margins = kDialogSubPanelMargins;
-				
-				with (add("panel")) {
-					orientation = "column";
-					alignChildren = ["left", "top"];
-					margins = kDialogSubPanelMargins;
 				}
 			}
 			
@@ -852,57 +879,36 @@ function analyseGraphics() {
 			showStatus(undefined, localize(msgEmbeddedImage), undefined, undefined);
 		}
 		
-		var myDoProcess = true;
-		var myIsPhotoshopEPS = false;
-		
-		// Линк в порядке?
-		if (!isGraphicLinkNormal(myGraphic)) myDoProcess = false;
-		
-		// Это не растр?
-		if (!isGraphicRaster(myGraphic)) {
-			// Обрабатываем фотошоповские EPSы?
-			if (preferences[kPrefsProcessPhotoshopEPS]) {
-				if (isGraphicPhotoshopEPS(myGraphic)) {
-					myIsPhotoshopEPS = true;
-				} else {
-					myDoProcess = false;
-				}
-			} else {
-				myDoProcess = false;
-			}
-		}
-		
-		// Заглушка -- Линк не скопипастченный?
-		//if (isGraphicPasted(myGraphic)) myDoProcess = false;
-		
-		// Заглушка -- Линк не внедрённый?
-		//if (isGraphicEmbedded(myGraphic)) myDoProcess = false;
-		
-		// Битмап?
-		if ((!preferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
-		
-		// Обрабатываем?
-		if (myDoProcess) {
-			var grc = myGraphic.itemLink.filePath;
+		function addFirstEntry(grc, name) {
+			graphics[grc] = new dictionary();
+			graphics[grc][kGraphicsName] = name;
+			graphics[grc][kGraphicsFormat] = graphicFormat(myGraphic);
+			graphics[grc][kGraphicsResample] = false;
+			graphics[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
+			graphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
+			graphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
+			graphics[grc][kGraphicsHasClippingPath] = false;
+			graphics[grc][kGraphicsOnMaster] = false;
+			graphics[grc][kGraphicsPasted] = isGraphicPasted(myGraphic);
+			graphics[grc][kGraphicsEmbedded] = isGraphicEmbedded(myGraphic);
+			graphics[grc][kGraphicsObjectList] = new dictionary();
 			
-			// Проверим, не попадался уже ли этот файл
-			if (!(grc in graphics)) {
-				// Не попадался, добавим первое вхождение
-				graphics[grc] = new dictionary();
-				graphics[grc][kGraphicsName] = myGraphic.itemLink.name;
-				graphics[grc][kGraphicsFormat] = graphicFormat(myGraphic);
-				graphics[grc][kGraphicsResample] = false;
-				graphics[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
-				graphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
-				graphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
-				graphics[grc][kGraphicsHasClippingPath] = false;
-				graphics[grc][kGraphicsOnMaster] = false;
-				graphics[grc][kGraphicsObjectList] = new dictionary();
-				
-				// Проверка read-only
+			// Проверка read-only
+			if (graphics[grc][kGraphicsPasted] || graphics[grc][kGraphicsEmbedded]) {
+				graphics[grc][kGraphicsFileReadonly] = false;
+				graphics[grc][kGraphicsFolderReadonly] = false;
+			} else {
 				var myFile = new File(myGraphic.itemLink.filePath);
 				graphics[grc][kGraphicsFileReadonly] = myFile.readonly;
 				graphics[grc][kGraphicsFolderReadonly] = isFolderReadOnly(myFile.parent);
+			}
+		}
+		
+		function addEntry(grc, name) {
+			// Проверим, не попадался уже ли этот файл
+			if (!(grc in graphics)) {
+				// Не попадался, добавим первое вхождение
+				addFirstEntry(grc, name);
 			}
 			
 			// Добавим в список это вхождение
@@ -927,6 +933,42 @@ function analyseGraphics() {
 			if (isGraphicOnMaster(myGraphic)) {
 				graphics[grc][kGraphicsOnMaster] = true;
 			}
+		}
+		
+		// Embedded, pasted или нормальный линк?
+		if (isGraphicPasted(myGraphic)) {
+			// Pasted
+			addEntry(localize(msgEmbeddedImage) + " " + myGraphic.id, "<" + myGraphic.id + ">");
+		} else if (isGraphicEmbedded(myGraphic)) {
+			// Embedded
+			addEntry(localize(msgEmbeddedImage) + " " + myGraphic.itemLink.filePath, myGraphic.itemLink.name);
+		} else {
+			// Нормальный линк
+			var myDoProcess = true;
+			var myIsPhotoshopEPS = false;
+			
+			// Линк в порядке? Не missing или modified?
+			if (myGraphic.itemLink.status != LinkStatus.NORMAL) myDoProcess = false;
+			
+			// Это не растр?
+			if (!isGraphicRaster(myGraphic)) {
+				// Обрабатываем фотошоповские EPSы?
+				if (preferences[kPrefsProcessPhotoshopEPS]) {
+					if (isGraphicPhotoshopEPS(myGraphic)) {
+						myIsPhotoshopEPS = true;
+					} else {
+						myDoProcess = false;
+					}
+				} else {
+					myDoProcess = false;
+				}
+			}
+			
+			// Битмап?
+			//if ((!preferences[kPrefsProcessBitmaps]) && (isGraphicBitmap(myGraphic))) myDoProcess = false;
+			
+			// Обрабатываем?
+			if (myDoProcess) addEntry(myGraphic.itemLink.filePath, myGraphic.itemLink.name);
 		}
 		
 		showStatus(undefined, undefined, statusWindowGauge.value + 1, undefined);
@@ -1085,6 +1127,14 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 		margins = kDialogSubPanelMargins;
 		
+		// Развнедрение внедрённых
+		var myProcessEmbedded = add("checkbox", undefined, localize(msgProcessEmbedded));
+		myProcessEmbedded.onClick = function() {
+			preferences[kPrefsProcessEmbedded] = myProcessEmbedded.value;
+			interfaceItemsChanged();
+		}
+		myProcessEmbedded.value = preferences[kPrefsProcessEmbedded];
+		
 		// Обработка битмапов
 		var myProcessBitmaps = add("checkbox", undefined, localize(msgProcessBitmaps));
 		myProcessBitmaps.onClick = function() {
@@ -1102,7 +1152,8 @@ function displayPreferences() {
 	}
 		
 	// Группа изменения формата
-	with (myParametersGroup.add("panel", undefined, localize(msgFormatOfImages))) {
+	myFormatOfImagesGroup = myParametersGroup.add("panel", undefined, localize(msgFormatOfImages));
+	with (myFormatOfImagesGroup) {
 		orientation = "column";
 		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "top"];
@@ -1194,7 +1245,8 @@ function displayPreferences() {
 	}
 	
 	// Группа изменения разрешения
-	with (myParametersGroup.add("panel", undefined, localize(msgChangeResolution))) {
+	myChangeResolutionGroup = myParametersGroup.add("panel", undefined, localize(msgChangeResolution));
+	with (myChangeResolutionGroup) {
 		orientation = "column";
 		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["left", "center"];
@@ -1633,8 +1685,8 @@ function displayPreferences() {
 		var myImagesList = myImagesGroup.add("listbox", undefined, undefined, {multiselect:true, numberOfColumns:4, showHeaders:true, columnTitles:["Name", "#", "DPI"], columnWidths:[170, 30, 45]});
 		with (myImagesList) {
 			alignment = ["fill", "top"];
-			preferredSize.height = 556;
-			maximumSize.height = 556;
+			preferredSize.height = 584;
+			maximumSize.height = 584;
 		}
 		
 		// отработка выделения картинок в обработку
@@ -1783,33 +1835,40 @@ function displayPreferences() {
 				if (((preferences[kPrefsIncludePasteboard]) || (selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
 					(preferences[kPrefsScope] == kScopeSelectedImages)) {
 					// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
-					if (isGraphicChangeFormat(selectedGraphics[grc])) { return true; }
-					if (selectedGraphics[grc][kGraphicsPhotoshopEPS]) {
-						// фотошоповский EPS
-					} else if (selectedGraphics[grc][kGraphicsBitmap]) {
-						// ч/б картинка
-						if (!preferences[kPrefsProcessBitmaps]) { return false; }
-						if ((preferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-							// низкое dpi ч/б
-							selectedGraphics[grc][kGraphicsResample] = true;
-							return true;
-						}
-						if ((preferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-							// высокое dpi ч/б
-							selectedGraphics[grc][kGraphicsResample] = true;
-							return true;
-						}
+					if (preferences[kPrefsProcessEmbedded]) {
+						// обрабатываем внедрённые картинки
+						if (selectedGraphics[grc][kGraphicsPasted] || selectedGraphics[grc][kGraphicsEmbedded]) { return true; }
 					} else {
-						// цветная картинка
-						if ((preferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-							// низкое dpi цвета
-							selectedGraphics[grc][kGraphicsResample] = true;
-							return true;
-						}
-						if ((preferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
-							// высокое dpi цвета
-							selectedGraphics[grc][kGraphicsResample] = true;
-							return true;
+						// обрабатываем обычные картинки
+						if (selectedGraphics[grc][kGraphicsPasted] || selectedGraphics[grc][kGraphicsEmbedded]) { return false; }
+						if (isGraphicChangeFormat(selectedGraphics[grc])) { return true; }
+						if (selectedGraphics[grc][kGraphicsPhotoshopEPS]) {
+							// фотошоповский EPS
+						} else if (selectedGraphics[grc][kGraphicsBitmap]) {
+							// ч/б картинка
+							if (!preferences[kPrefsProcessBitmaps]) { return false; }
+							if ((preferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+								// низкое dpi ч/б
+								selectedGraphics[grc][kGraphicsResample] = true;
+								return true;
+							}
+							if ((preferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+								// высокое dpi ч/б
+								selectedGraphics[grc][kGraphicsResample] = true;
+								return true;
+							}
+						} else {
+							// цветная картинка
+							if ((preferences[kPrefsColorUpsample]) && (isGraphicColorDPILow(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+								// низкое dpi цвета
+								selectedGraphics[grc][kGraphicsResample] = true;
+								return true;
+							}
+							if ((preferences[kPrefsColorDownsample]) && (isGraphicColorDPIHigh(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+								// высокое dpi цвета
+								selectedGraphics[grc][kGraphicsResample] = true;
+								return true;
+							}
 						}
 					}
 				}
@@ -1922,6 +1981,11 @@ function displayPreferences() {
 		myIncludePasteboard.enabled = ((preferences[kPrefsScope] == kScopeAllDocs) || (preferences[kPrefsScope] == kScopeActiveDoc));
 		myBackupGroup.enabled = preferences[kPrefsBackup];
 		
+		myProcessBitmaps.enabled = !myProcessEmbedded.value;
+		myLeaveGraphicsOpen.enabled = !myProcessEmbedded.value;
+		myFormatOfImagesGroup.enabled = !myProcessEmbedded.value;
+		myChangeResolutionGroup.enabled = !myProcessEmbedded.value;
+		
 		savePreferences();
 		filterGraphics();
 	}
@@ -1968,7 +2032,7 @@ function displayPreferences() {
 	}
 	
 	// Уточнить при области действия в "только выбранные", нужно ли обрабатывать другие вхождения
-	if (preferences[kPrefsScope] = kScopeSelectedImages) {
+	if (preferences[kPrefsScope] == kScopeSelectedImages) {
 		// пройдёмся по всем выбранным в списке
 		var flagMultipleEntries = false;
 		for (var grc in selectedGraphics) {
@@ -2016,21 +2080,16 @@ function displayPreferences() {
 							break;
 						}
 					}
-					if (isSelected) {
-						break;
-					}
+					if (isSelected) break;
 				}
-				if (!isSelected) {
-					delete documents[doc];
-				}
+				if (!isSelected) delete documents[doc];
 			}
 			break;
 		case kScopeActiveDoc:
 		case kScopeSelectedPages:
 		case kScopeSelectedImages:
 			for (var doc in documents) {
-				if (doc != activeDocument)
-					delete documents[doc];
+				if (doc != activeDocument) delete documents[doc];
 			}
 			break;
 		default:
@@ -2189,19 +2248,21 @@ function backupImages() {
 	
 	// Пройдёмся по всем картинкам
 	var backupFilesCount = 0;
-	for (var grc in selectedGraphics) {
-		// добавим все вхождения картинки в подокументный список для бэкапа
-		for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
-			// получим ID документа этого вхождения
-			var doc = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument];
-			
-			// картинки ещё нет в списке бэкапа?
-			var myItemLink = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink;
-			var myBackupList = documents[doc][kDocumentsBackupList];
-			if (!(myItemLink.filePath in myBackupList)) {
-				// добавим
-				myBackupList[myItemLink.filePath] = myItemLink;
-				backupFilesCount++;
+	if (!preferences[kPrefsProcessEmbedded]) {
+		for (var grc in selectedGraphics) {
+			// добавим все вхождения картинки в подокументный список для бэкапа
+			for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
+				// получим ID документа этого вхождения
+				var doc = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument];
+				
+				// картинки ещё нет в списке бэкапа?
+				var myItemLink = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink;
+				var myBackupList = documents[doc][kDocumentsBackupList];
+				if (!(myItemLink.filePath in myBackupList)) {
+					// добавим
+					myBackupList[myItemLink.filePath] = myItemLink;
+					backupFilesCount++;
+				}
 			}
 		}
 	}
@@ -2213,6 +2274,82 @@ function backupImages() {
 	for (var doc in documents) {
 		backupDocument(documents[doc]);
 		if (flagStopExecution) { break }
+	}
+	
+	showStatus(undefined, undefined, statusWindowGauge.maxvalue, statusWindowGauge.maxvalue);
+	hideStatus();
+	
+	return !flagStopExecution;
+}
+
+// Развнедрим картинки
+// ------------------------------------------------------
+function unembedImages() {
+	// Обрабатываем или развнедряем?
+	if (!preferences[kPrefsProcessEmbedded]) { return true }
+	
+	// Спросим, куда класть
+	var decisionResult = (askForDecision(msgUnembeddingOptions, msgUnembeddingOptionsDescription, kUnembedOptions, kUnembedIntoDifferentFolders));
+	
+	// Отмена?
+	if (decisionResult == -1) return false;
+	
+	// Выбран вариант с одной папкой?
+	var unembedFolder = Folder.desktop;
+	if (decisionResult == kUnembedIntoOneFolder) {
+		unembedFolder = unembedFolder.selectDlg(localize(msgUnembeddingFolderPrompt));
+	}
+	
+	// Поехали
+	showStatus(localize(msgUnembeddingImagesStatus), "", 0, dictionaryLength(selectedGraphics));
+	
+	// Пройдёмся по всем документам
+	for (var doc in documents) {
+		
+		// Сделаем, если нужно, папку для развнедряемых файлов
+		if (decisionResult == kUnembedIntoDifferentFolders) {
+			unembedFolder = new Folder(documents[doc][kDocumentsObject].filePath + "/" + documents[doc][kDocumentsName] + kUnembedFolderSuffix);
+			if (!unembedFolder.create()) {
+				alert(localize(msgErrorCreatingUnembeddedFolder, Folder.decode(unembedFolder)));
+				return false;
+			}
+		}
+		
+		// Пройдёмся по всем картинкам
+		for (var grc in selectedGraphics) {
+			var flagUnembedded = false;
+			var unembeddedFile;
+			
+			for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
+				if (selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] == doc) {
+					showStatus(undefined, selectedGraphics[grc][kGraphicsName], statusWindowGauge.value + 1, undefined);
+					
+					try {
+						// Картинка внедрённая?
+						if (selectedGraphics[grc][kGraphicsEmbedded]) {
+							// Развнедряем или уже развнедрили предыдущее вхождение?
+							if (flagUnembedded) {
+								// Уже развнедрили, перелинковываем
+								selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink.relink(unembeddedFile);
+							} else {
+								// Развнедряем
+								selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink.unembed(unembedFolder);
+								unembeddedFile = new File(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink.filePath);
+								flagUnembedded = true;
+							}
+						}
+						
+						// Картинка скопипастченная?
+						if (selectedGraphics[grc][kGraphicsPasted]) {
+							// Разскопипастчиваем
+						}
+					} catch (e) {
+						alert(localize(msgErrorUnembeddingImage, File.decode(unembedFolder) + "/" + File.decode(selectedGraphics[grc][kGraphicsName]) + "\n\n" + e));
+						return false;
+					}
+				}
+			}
+		}
 	}
 	
 	showStatus(undefined, undefined, statusWindowGauge.maxvalue, statusWindowGauge.maxvalue);
@@ -2308,6 +2445,9 @@ function processImages() {
 			app.displayDialogs = mySavedDisplayDialogs;
 		}
 	}
+	
+	// Обрабатываем или развнедряем?
+	if (preferences[kPrefsProcessEmbedded]) { return true }
 	
 	// Поехали
 	showStatus(localize(msgProcessingImagesStatus), "", 0, dictionaryLength(selectedGraphics));
@@ -2481,7 +2621,10 @@ function processImages() {
 // Перецепить картинки
 // ------------------------------------------------------
 function relinkImages() {
-	// посчитать линки
+	// Перелинковываем или было развнедрение?
+	if (preferences[kPrefsProcessEmbedded]) { return true }
+	
+	// Посчитать линки
 	var myTotalLinks = 0;
 	for (var grc in selectedGraphics) {
 		myTotalLinks += dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]);
@@ -2774,12 +2917,6 @@ function isGraphicWithinBleeds(myGraphic) {
 	myDocument.viewPreferences.rulerOrigin = myRulerOrigin;
 	
 	return !myOffBleeds;
-}
-
-// Проверка картинки на нормальность линка
-// ------------------------------------------------------
-function isGraphicLinkNormal(myGraphic) {
-	return ((myGraphic.itemLink != undefined) && (myGraphic.itemLink.status == LinkStatus.NORMAL));
 }
 
 // Проверка картинки на скопипастченность
