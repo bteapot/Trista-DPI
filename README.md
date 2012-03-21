@@ -69,6 +69,10 @@
 
 Ранее созданные резервные копии могут быть автоматически восстановлены при запуске скрипта без открытых документов InDesign.
 
+### Развнедрение
+
+Картинки, штатно внедрённые в документ и картинки, вставленные командами Копировать/Вставить, могут быть автоматически извлечены.
+
 Установка
 ---------
 
@@ -141,6 +145,10 @@ When the file names from different folders are identical, unique number are adde
 Backups created more than month ago can be automatically deleted if desired.
 
 Previously created backups can be automatically restored by running script with no documents open in InDesign.
+
+### Unembedding
+
+Embedded images and images, pasted into document by Copy/Paste commands can be automatically unembedded.
 
 Installation
 ------------
