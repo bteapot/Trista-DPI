@@ -320,6 +320,7 @@ const kLogFileEND = "END";
 const kLogFileERR = "ERR";
 
 const kUnembedFolderSuffix = " unembedded files";
+const kUnembedFilePrefix = "unembedded file ";
 
 // Списки
 const kResampleBicubic = 0;
@@ -2306,17 +2307,38 @@ function unembedImages() {
 	// Пройдёмся по всем документам
 	for (var doc in documents) {
 		
+		// Сохраним reference pointы во всех окошках документа
+		var myReferencePoints = [];
+		for (var wnd = 0; wnd < documents[doc][kDocumentsObject].layoutWindows.length; wnd++) {
+			myReferencePoints[wnd] = documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint;
+			documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = AnchorPoint.CENTER_ANCHOR;
+		}
+		
+		// Сохраним настройки экспорта для JPEG
+		var savedJPEGExportPreferences = app.jpegExportPreferences;
+		with (app.jpegExportPreferences) {
+			antiAlias = false;
+			embedColorProfile = false;
+			exportResolution = 300;
+			jpegColorSpace = JpegColorSpaceEnum.RGB;
+			jpegQuality = JPEGOptionsQuality.MAXIMUM;
+			jpegRenderingStyle = JPEGOptionsFormat.BASELINE_ENCODING;
+		}
+		
 		// Сделаем, если нужно, папку для развнедряемых файлов
 		if (decisionResult == kUnembedIntoDifferentFolders) {
 			unembedFolder = new Folder(documents[doc][kDocumentsObject].filePath + "/" + documents[doc][kDocumentsName] + kUnembedFolderSuffix);
 			if (!unembedFolder.create()) {
 				alert(localize(msgErrorCreatingUnembeddedFolder, Folder.decode(unembedFolder)));
-				return false;
+				flagStopExecution = true;
 			}
 		}
 		
 		// Пройдёмся по всем картинкам
 		for (var grc in selectedGraphics) {
+			
+			if (flagStopExecution) { break }
+			
 			var flagUnembedded = false;
 			var unembeddedFile;
 			
@@ -2341,15 +2363,59 @@ function unembedImages() {
 						
 						// Картинка скопипастченная?
 						if (selectedGraphics[grc][kGraphicsPasted]) {
+							var obj = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject];
+							var par = obj.parent;
+							
+							// Запомним, как было
+							var savedHScale = obj.horizontalScale;
+							var savedVScale = obj.verticalScale;
+							var savedRotationAngle = obj.rotationAngle;
+							var savedShearAngle = obj.shearAngle;
+							var savedGeometricBounds = obj.geometricBounds;
+							
+							// Стой ровно, не дёргайся
+							obj.horizontalScale = 100;
+							obj.verticalScale = 100;
+							obj.rotationAngle = 0;
+							obj.shearAngle = 0;
+							obj.fit(FitOptions.CENTER_CONTENT);
+							
+							// Тут, по-хорошему, надо написать про обработку наложенных на картинку эффектов типа DropShadow
+							
+							
 							// Разскопипастчиваем
+							var unpastedFile = uniqueFileName(unembedFolder, kUnembedFilePrefix + itm + ".jpg");
+							obj.exportFile(ExportFormat.JPG, unpastedFile);
+							
+							// Перелинковываем
+							var obj = par.place(unpastedFile)[0];
+							
+							// Ставим как было
+							obj.geometricBounds = savedGeometricBounds;
+							obj.verticalScale = savedVScale;
+							obj.horizontalScale = savedHScale;
+							obj.shearAngle = savedShearAngle;
+							obj.rotationAngle = savedRotationAngle;
 						}
 					} catch (e) {
 						alert(localize(msgErrorUnembeddingImage, File.decode(unembedFolder) + "/" + File.decode(selectedGraphics[grc][kGraphicsName]) + "\n\n" + e));
-						return false;
+						flagStopExecution = true;
 					}
 				}
+				if (flagStopExecution) { break }
 			}
+			if (flagStopExecution) { break }
 		}
+		
+		// Восстановим настройки экспорта JPEG
+		var savedJPEGExportPreferences = app.jpegExportPreferences;
+		
+		// Восстановим reference pointы
+		for (var wnd = 0; wnd < documents[doc][kDocumentsObject].layoutWindows.length; wnd++) {
+			documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = myReferencePoints[wnd];
+		}
+		
+		if (flagStopExecution) { break }
 	}
 	
 	showStatus(undefined, undefined, statusWindowGauge.maxvalue, statusWindowGauge.maxvalue);
