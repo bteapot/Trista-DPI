@@ -2949,7 +2949,8 @@ function isGraphicWithinBleeds(myGraphic) {
 		myRawPageBounds[1][2] + myBleed[2],
 		myRawPageBounds[1][3] + myBleed[3]];
 	
-	var myGraphicBounds = myGraphic.visibleBounds;
+	// Возьмём рамку контейнера
+	var myGraphicBounds = myGraphic.parent.visibleBounds;
 	
 	// Выпала?
 	var myOffBleeds = (
