@@ -3119,7 +3119,7 @@ function isGraphicChangeFormat(myGraphic) {
 // ------------------------------------------------------
 function isGraphicColorDPILow(myGraphicDPI) {
 	// всегда делаем ресэмпл при дельте == 0
-	if (preferences[kPrefsColorDelta] == 0) {
+	if ((myGraphicDPI == (preferences[kPrefsColorTargetDPI] - preferences[kPrefsColorDelta])) && (preferences[kPrefsColorDelta] == 0)) {
 		return true;
 	} else {
 		return (myGraphicDPI < (preferences[kPrefsColorTargetDPI] - preferences[kPrefsColorDelta]));
@@ -3130,7 +3130,7 @@ function isGraphicColorDPILow(myGraphicDPI) {
 // ------------------------------------------------------
 function isGraphicColorDPIHigh(myGraphicDPI) {
 	// всегда делаем ресэмпл при дельте == 0
-	if (preferences[kPrefsColorDelta] == 0) {
+	if ((myGraphicDPI == (preferences[kPrefsColorTargetDPI] + preferences[kPrefsColorDelta])) && (preferences[kPrefsColorDelta] == 0)) {
 		return true;
 	} else {
 		return (myGraphicDPI > (preferences[kPrefsColorTargetDPI] + preferences[kPrefsColorDelta]));
