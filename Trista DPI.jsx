@@ -1,9 +1,7 @@
 ﻿// Пакетная обработка растровых изображений в документах Adobe InDesign
 //
 // Денис Либит
-// Студия КолорБокс
-// denis@boxcolor.ru
-// www.boxcolor.ru
+// bteapot@me.com
 //
 // https://github.com/bteapot/Trista-DPI
 // -----------------------------------------------------------------------------------
@@ -91,9 +89,6 @@ const msgPreferences = {
 const msgCommonParameters = {
 	ru: "Общие параметры",
 	en: "Common parameters" };
-const msgProcessEmbedded = {
-	ru: "Развнедрять внедрённые картинки",
-	en: "Unembed embedded images" };
 const msgProcessBitmaps = {
 	ru: "Обрабатывать Bitmap",
 	en: "Process Bitmaps" };
@@ -112,6 +107,12 @@ const msgChangeFormatOfWrong = {
 const msgChangeFormatOfAll = {
 	ru: "Пересохранить все файлы",
 	en: "Change format of all files" };
+const msgExportToPNGWrong = {
+	ru: "Только не-PNG файлы",
+	en: "Non-PNG files only" };
+const msgExportToPNGAll = {
+	ru: "Все файлы, включая PNG",
+	en: "All files including PNG" };
 const msgBackgroundLayerToNormalLayer = {
 	ru: "Оторвать слой от фона",
 	en: "Background layer to normal layer" };
@@ -232,9 +233,9 @@ var tempFolder;
 var smallFont;
 var headerColor = [0.1, 0.1, 0.1];
 
-var documents = new dictionary();
+var documentsList = new dictionary();
 var documentSelection = new dictionary();
-var graphics = new dictionary();
+var graphicsList = new dictionary();
 var selectedGraphics = new dictionary();
 var folders = new dictionary();
 var activeDocument;
@@ -246,7 +247,7 @@ var flagOldBackupsDeleted = false;
 
 // Константы
 const kPrefsLocale = "locale";
-const kPrefsProcessEmbedded = "processEmbedded";
+const kPrefsWorkflow = "workflow";
 const kPrefsProcessBitmaps = "processBitmaps";
 const kPrefsLeaveGraphicsOpen = "leaveGraphicsOpen";
 const kPrefsChangeFormatOf = "changeFormat";
@@ -258,6 +259,10 @@ const kPrefsMakeLayerFromBackground = "makeLayerFromBackground";
 const kPrefsRemoveClipping = "removeClipping";
 const kPrefsDeleteOriginals = "deleteOriginals";
 const kPrefsProcessPhotoshopEPS = "processPhotoshopEPS";
+const kPrefsExportToPNG = "exportToPNG";
+const kPrefsExportToPNGWrong = "exportToPNGWrong";
+const kPrefsExportToPNGAll = "exportToPNGAll";
+const kPrefsDeletePNGOriginals = "deletePNGOriginals";
 const kPrefsScope = "scope";
 const kPrefsIncludePasteboard = "includePasteboard";
 const kPrefsColorTargetDPI = "colorTargetDPI";
@@ -323,6 +328,20 @@ const kUnembedFolderSuffix = " unembedded files";
 const kUnembedFilePrefix = "unembedded file ";
 
 // Списки
+const kWorkflowPrepress = 0;
+const kWorkflowDigital = 1;
+const kWorkflowUnembed = 2;
+const kWorkflowOptions = [
+	[kWorkflowPrepress, {
+		ru: "Допечатный процесс",
+		en: "Prepress workflow" }],
+	[kWorkflowDigital, {
+		ru: "Цифровой процесс",
+		en: "Digital workflow" }],
+	[kWorkflowUnembed, {
+		ru: "Развнедрение картинок",
+		en: "Unembed images" }]];
+
 const kResampleBicubic = 0;
 const kResampleSmootherSharper = 1;
 const kResampleOptions = [
@@ -470,7 +489,7 @@ function initialSettings() {
 		}
 	}
 	
-	preferences[kPrefsProcessEmbedded] = false;
+	preferences[kPrefsWorkflow] = kWorkflowPrepress;
 	preferences[kPrefsProcessBitmaps] = false;
 	preferences[kPrefsLeaveGraphicsOpen] = false;
 	
@@ -480,6 +499,9 @@ function initialSettings() {
 	preferences[kPrefsRemoveClipping] = true;
 	preferences[kPrefsDeleteOriginals] = true;
 	preferences[kPrefsProcessPhotoshopEPS] = false;
+	
+	preferences[kPrefsExportToPNG] = kPrefsExportToPNGAll;
+	preferences[kPrefsDeletePNGOriginals] = false;
 	
 	preferences[kPrefsScope] = kScopeActiveDoc;
 	preferences[kPrefsIncludePasteboard] = false;
@@ -780,7 +802,7 @@ function restoreBackup() {
 // ------------------------------------------------------
 function checkDocuments() {
 	// Уже сделано?
-	if (dictionaryLength(documents) > 0) return true;
+	if (dictionaryLength(documentsList) > 0) return true;
 	
 	showStatus(localize(msgCheckingOpenedDocumentsStatus), "", 0, app.documents.length);
 	
@@ -824,35 +846,35 @@ function checkDocuments() {
 		
 		// Добавим документ в список
 		var docID = documentID(myDocument);
-		documents[docID] = {};
-		documents[docID][kDocumentsName] = myDocument.name;
-		documents[docID][kDocumentsObject] = myDocument;
-		documents[docID][kDocumentsModified] = myDocument.modified;
-		documents[docID][kDocumentsFileReadonly] = myDocument.readOnly;
-		documents[docID][kDocumentsLinksTotal] = myDocument.links.length;
-		documents[docID][kDocumentsLinksNormal] = myLinksNormal;
-		documents[docID][kDocumentsLinksOutOfDate] = myLinksOutOfDate;
-		documents[docID][kDocumentsLinksMissing] = myLinksMissing;
-		documents[docID][kDocumentsLinksEmbedded] = myLinksEmbedded;
+		documentsList[docID] = {};
+		documentsList[docID][kDocumentsName] = myDocument.name;
+		documentsList[docID][kDocumentsObject] = myDocument;
+		documentsList[docID][kDocumentsModified] = myDocument.modified;
+		documentsList[docID][kDocumentsFileReadonly] = myDocument.readOnly;
+		documentsList[docID][kDocumentsLinksTotal] = myDocument.links.length;
+		documentsList[docID][kDocumentsLinksNormal] = myLinksNormal;
+		documentsList[docID][kDocumentsLinksOutOfDate] = myLinksOutOfDate;
+		documentsList[docID][kDocumentsLinksMissing] = myLinksMissing;
+		documentsList[docID][kDocumentsLinksEmbedded] = myLinksEmbedded;
 		
-		documents[docID][kDocumentsProcessable] = (
-			(!documents[docID][kDocumentsModified]) &&
-			(!documents[docID][kDocumentsFileReadonly]) &&
-			(documents[docID][kDocumentsLinksOutOfDate] == 0));
+		documentsList[docID][kDocumentsProcessable] = (
+			(!documentsList[docID][kDocumentsModified]) &&
+			(!documentsList[docID][kDocumentsFileReadonly]) &&
+			(documentsList[docID][kDocumentsLinksOutOfDate] == 0));
 		
-		documents[docID][kDocumentsBackupList] = {};
+		documentsList[docID][kDocumentsBackupList] = {};
 		
 		if (flagStopExecution) { break }
 	}
 	
 	// Предупредить о необновлённых картинках
 	var myDocListString = "";
-	for (var doc in documents) {
-		if (documents[doc][kDocumentsLinksOutOfDate] > 0) {
+	for (var doc in documentsList) {
+		if (documentsList[doc][kDocumentsLinksOutOfDate] > 0) {
 			if (myDocListString.length > 0) {
-				myDocListString += ", " + documents[doc][kDocumentsName];
+				myDocListString += ", " + documentsList[doc][kDocumentsName];
 			} else {
-				myDocListString = documents[doc][kDocumentsName];
+				myDocListString = documentsList[doc][kDocumentsName];
 			}
 		}
 	}
@@ -881,33 +903,33 @@ function analyseGraphics() {
 		}
 		
 		function addFirstEntry(grc, name) {
-			graphics[grc] = new dictionary();
-			graphics[grc][kGraphicsName] = name;
-			graphics[grc][kGraphicsFormat] = graphicFormat(myGraphic);
-			graphics[grc][kGraphicsResample] = false;
-			graphics[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
-			graphics[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
-			graphics[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
-			graphics[grc][kGraphicsHasClippingPath] = false;
-			graphics[grc][kGraphicsOnMaster] = false;
-			graphics[grc][kGraphicsPasted] = isGraphicPasted(myGraphic);
-			graphics[grc][kGraphicsEmbedded] = isGraphicEmbedded(myGraphic);
-			graphics[grc][kGraphicsObjectList] = new dictionary();
+			graphicsList[grc] = new dictionary();
+			graphicsList[grc][kGraphicsName] = name;
+			graphicsList[grc][kGraphicsFormat] = graphicFormat(myGraphic);
+			graphicsList[grc][kGraphicsResample] = false;
+			graphicsList[grc][kGraphicsPhotoshopEPS] = myIsPhotoshopEPS;
+			graphicsList[grc][kGraphicsBitmap] = isGraphicBitmap(myGraphic);
+			graphicsList[grc][kGraphicsActualDPI] = actualPPI(myGraphic)[0];
+			graphicsList[grc][kGraphicsHasClippingPath] = false;
+			graphicsList[grc][kGraphicsOnMaster] = false;
+			graphicsList[grc][kGraphicsPasted] = isGraphicPasted(myGraphic);
+			graphicsList[grc][kGraphicsEmbedded] = isGraphicEmbedded(myGraphic);
+			graphicsList[grc][kGraphicsObjectList] = new dictionary();
 			
 			// Проверка read-only
-			if (graphics[grc][kGraphicsPasted] || graphics[grc][kGraphicsEmbedded]) {
-				graphics[grc][kGraphicsFileReadonly] = false;
-				graphics[grc][kGraphicsFolderReadonly] = false;
+			if (graphicsList[grc][kGraphicsPasted] || graphicsList[grc][kGraphicsEmbedded]) {
+				graphicsList[grc][kGraphicsFileReadonly] = false;
+				graphicsList[grc][kGraphicsFolderReadonly] = false;
 			} else {
 				var myFile = new File(myGraphic.itemLink.filePath);
-				graphics[grc][kGraphicsFileReadonly] = myFile.readonly;
-				graphics[grc][kGraphicsFolderReadonly] = isFolderReadOnly(myFile.parent);
+				graphicsList[grc][kGraphicsFileReadonly] = myFile.readonly;
+				graphicsList[grc][kGraphicsFolderReadonly] = isFolderReadOnly(myFile.parent);
 			}
 		}
 		
 		function addEntry(grc, name) {
 			// Проверим, не попадался уже ли этот файл
-			if (!(grc in graphics)) {
+			if (!(grc in graphicsList)) {
 				// Не попадался, добавим первое вхождение
 				addFirstEntry(grc, name);
 			}
@@ -915,24 +937,24 @@ function analyseGraphics() {
 			// Добавим в список это вхождение
 			var itm = myGraphic.id;
 			
-			graphics[grc][kGraphicsObjectList][itm] = new dictionary();
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsObject] = myGraphic;
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentID(documentOfGraphic(myGraphic));
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsParentPage] = pageOfGraphic(myGraphic);
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = isGraphicWithinBleeds(myGraphic);
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI] = lowestDPI(myGraphic);
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsObjectHScale] = (myGraphic.absoluteFlip == Flip.HORIZONTAL ? -1 : 1) * myGraphic.absoluteHorizontalScale / 100;
-			graphics[grc][kGraphicsObjectList][itm][kGraphicsObjectVScale] = (myGraphic.absoluteFlip == Flip.VERTICAL ? -1 : 1) * myGraphic.absoluteVerticalScale / 100;
+			graphicsList[grc][kGraphicsObjectList][itm] = new dictionary();
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsObject] = myGraphic;
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsParentDocument] = documentID(documentOfGraphic(myGraphic));
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsParentPage] = pageOfGraphic(myGraphic);
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds] = isGraphicWithinBleeds(myGraphic);
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI] = lowestDPI(myGraphic);
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsMaxPercentage] = maxPercentage(myGraphic);
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsObjectHScale] = (myGraphic.absoluteFlip == Flip.HORIZONTAL ? -1 : 1) * myGraphic.absoluteHorizontalScale / 100;
+			graphicsList[grc][kGraphicsObjectList][itm][kGraphicsObjectVScale] = (myGraphic.absoluteFlip == Flip.VERTICAL ? -1 : 1) * myGraphic.absoluteVerticalScale / 100;
 			
 			// Есть клиппинг?
 			if (hasClippingPath(myGraphic)) {
-				graphics[grc][kGraphicsHasClippingPath] = true;
+				graphicsList[grc][kGraphicsHasClippingPath] = true;
 			}
 			
 			// Картинка на мастере?
 			if (isGraphicOnMaster(myGraphic)) {
-				graphics[grc][kGraphicsOnMaster] = true;
+				graphicsList[grc][kGraphicsOnMaster] = true;
 			}
 		}
 		
@@ -976,7 +998,7 @@ function analyseGraphics() {
 	}
 	
 	// Уже сделано?
-	if (dictionaryLength(graphics) > 0) return true;
+	if (dictionaryLength(graphicsList) > 0) return true;
 	
 	// Сканируем EPSы?
 	if (preferences[kPrefsProcessPhotoshopEPS]) flagEPSScanned = true;
@@ -985,17 +1007,17 @@ function analyseGraphics() {
 	
 	// Посчитаем картинки
 	var totalImages = 0;
-	for (var doc in documents) {
-		totalImages += documents[doc][kDocumentsObject].allGraphics.length;
+	for (var doc in documentsList) {
+		totalImages += documentsList[doc][kDocumentsObject].allGraphics.length;
 	}
 	showStatus(undefined, undefined, 0, totalImages);
 	
 	// Пройдёмся по всем документам
-	for (var doc in documents) {
-		if (documents[doc][kDocumentsProcessable]) {
+	for (var doc in documentsList) {
+		if (documentsList[doc][kDocumentsProcessable]) {
 			// Пройдёмся по всем картинкам
-			for (var grc = 0; grc < documents[doc][kDocumentsObject].allGraphics.length; grc++) {
-				checkGraphic(documents[doc][kDocumentsObject].allGraphics[grc]);
+			for (var grc = 0; grc < documentsList[doc][kDocumentsObject].allGraphics.length; grc++) {
+				checkGraphic(documentsList[doc][kDocumentsObject].allGraphics[grc]);
 				if (flagStopExecution) { break }
 			}
 			if (flagStopExecution) { break }
@@ -1029,8 +1051,8 @@ function analyseGraphics() {
 		}
 	}
 	
-	if (documents[activeDocument][kDocumentsObject].selection != null) {
-		parseObject(documents[activeDocument][kDocumentsObject].selection);
+	if (documentsList[activeDocument][kDocumentsObject].selection != null) {
+		parseObject(documentsList[activeDocument][kDocumentsObject].selection);
 	}
 	
 	hideStatus();
@@ -1046,10 +1068,6 @@ function analyseGraphics() {
 function displayPreferences() {
 	// Собираем диалоговое окно
 	var preferencesDialog = new Window("dialog", localize(msgPreferences));
-	
-	// Флаги
-	var myFlagChangeFormat = false;
-	var myFlagResample = false;
 	
 	// Картинки интерфейса
 	var myCircleGreenData = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDoAABSCAABFVgAADqXAAAXb9daH5AAAACLSURBVHja1NK9CQJBEIbhZ8X8arAEc8HISLATwQ7kChAEO7n0UnNL2A6Eq2BNVjiOuw0WDPxggvl5YeZjQkpJjVYqVQ2ux0loA2xwxy6Xn7ggpmuaBzP0QjOqnbDHFnFp1dsE+qrBo3TjsXDW4Seu9oXZvgSeMcxAQ+4tgjG71+Gdo5s6CuF/Xu4zALGGGhU58X7YAAAAAElFTkSuQmCC";
@@ -1121,6 +1139,137 @@ function displayPreferences() {
 	myParametersGroup.minimumSize.width = kDialogPanelWidth;
 	myParametersGroup.alignChildren = ["fill", "top"];
 	
+	var myChangeFormatParametersGroup;
+	var myPSDOptionsGroup;
+	var myExportToPNGParametersGroup;
+	
+	// наполнение группы параметров формата
+	function setFormatOfImagesGroup() {
+		
+		// уберём прошлые элементы
+		with (myFormatOfImagesGroup) {
+			for (var idx = 0; idx < myFormatOfImagesGroup.children.length; idx++) {
+				myFormatOfImagesGroup.remove(idx);
+			}
+		}
+		
+		// добавим новые
+		if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+			// допечатный процесс
+			var myChangeFormatOfGroup = myFormatOfImagesGroup.add("group");
+			with (myChangeFormatOfGroup) {
+				orientation = "column";
+				alignChildren = ["left", "top"];
+				
+				var myChangeFormatOfNoneButton = add("radiobutton", undefined, localize(msgChangeFormatOfNone));
+				myChangeFormatOfNoneButton.onClick = function() {
+					preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfNone;
+					interfaceItemsChanged();
+				}
+				myChangeFormatOfNoneButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfNone);
+				
+				var myChangeFormatOfWrongButton = add("radiobutton", undefined, localize(msgChangeFormatOfWrong));
+				myChangeFormatOfWrongButton.onClick = function() {
+					preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfWrong;
+					interfaceItemsChanged();
+				}
+				myChangeFormatOfWrongButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfWrong);
+				
+				var myChangeFormatOfAllButton = add("radiobutton", undefined, localize(msgChangeFormatOfAll));
+				myChangeFormatOfAllButton.onClick = function() {
+					preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfAll;
+					interfaceItemsChanged();
+				}
+				myChangeFormatOfAllButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfAll);
+			}
+			
+			myChangeFormatParametersGroup = myChangeFormatOfGroup.add("group");
+			with (myChangeFormatParametersGroup) {
+				orientation = "column";
+				alignChildren = ["fill", "top"];
+				margins = kDialogSubControlMargins;
+				
+				var myChangeFormatToDropdown = add("dropdownlist");
+				for (var itm = 0; itm < kChangeFormatToOptions.length; itm++) {
+					var newListItem = myChangeFormatToDropdown.add("item", localize(kChangeFormatToOptions[itm][1]));
+					newListItem[kListItemObject] = kChangeFormatToOptions[itm][0];
+					if (newListItem[kListItemObject] == preferences[kPrefsChangeFormatTo]) {
+						myChangeFormatToDropdown.selection = newListItem;
+					}
+				}
+				myChangeFormatToDropdown.onChange = function () {
+					preferences[kPrefsChangeFormatTo] = myChangeFormatToDropdown.selection[kListItemObject];
+					interfaceItemsChanged();
+				}
+				
+				myPSDOptionsGroup = add("group");
+				with (myPSDOptionsGroup) {
+					orientation = "column";
+					alignChildren = ["left", "top"];
+					margins = kDialogSubControlMargins;
+					
+					var myMakeLayerFromBackground = add("checkbox", undefined, localize(msgBackgroundLayerToNormalLayer));
+					myMakeLayerFromBackground.onClick = function() {
+						preferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
+					}
+					myMakeLayerFromBackground.value = preferences[kPrefsMakeLayerFromBackground];
+			
+					var myRemoveClipping = add("checkbox", undefined, localize(msgRemoveClipping));
+					myRemoveClipping.onClick = function() {
+						preferences[kPrefsRemoveClipping] = myRemoveClipping.value;
+					}
+					myRemoveClipping.value = preferences[kPrefsRemoveClipping];
+				}
+
+				var myDeleteOriginals = add("checkbox", undefined, localize(msgRemoveSourceImages));
+				myDeleteOriginals.onClick = function() {
+					preferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
+				}
+				myDeleteOriginals.value = preferences[kPrefsDeleteOriginals];
+			}
+		} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+			// цифровой процесс
+			var myExportToPNGGroup = myFormatOfImagesGroup.add("group");
+			with (myExportToPNGGroup) {
+				orientation = "column";
+				alignChildren = ["left", "top"];
+				
+				var myChangeFormatOfPNGWrongButton = add("radiobutton", undefined, localize(msgExportToPNGWrong));
+				myChangeFormatOfPNGWrongButton.onClick = function() {
+					preferences[kPrefsExportToPNG] = kPrefsExportToPNGWrong;
+					interfaceItemsChanged();
+				}
+				myChangeFormatOfPNGWrongButton.value = (preferences[kPrefsExportToPNG] == kPrefsExportToPNGWrong);
+				
+				var myChangeFormatOfPNGAllButton = add("radiobutton", undefined, localize(msgExportToPNGAll));
+				myChangeFormatOfPNGAllButton.onClick = function() {
+					preferences[kPrefsExportToPNG] = kPrefsExportToPNGAll;
+					interfaceItemsChanged();
+				}
+				myChangeFormatOfPNGAllButton.value = (preferences[kPrefsExportToPNG] == kPrefsExportToPNGAll);
+			}
+				
+			myExportToPNGParametersGroup = myExportToPNGGroup.add("group");
+			with (myExportToPNGParametersGroup) {
+				orientation = "column";
+				alignChildren = ["fill", "top"];
+				margins = kDialogSubControlMargins;
+				
+				var myDeletePNGOriginals = add("checkbox", undefined, localize(msgRemoveSourceImages));
+				myDeletePNGOriginals.onClick = function() {
+					preferences[kPrefsDeletePNGOriginals] = myDeletePNGOriginals.value;
+				}
+				myDeletePNGOriginals.value = preferences[kPrefsDeletePNGOriginals];
+			}
+		} else if (preferences[kPrefsWorkflow] == kWorkflowUnembed) {
+			// развнедрение картинок
+			
+		}
+		
+		// отрисуем
+		myFormatOfImagesGroup.layout.layout(true);
+	}
+	
 	// Группа общих настроек
 	with (myParametersGroup.add("panel", undefined, localize(msgCommonParameters))) {
 		orientation = "column";
@@ -1128,13 +1277,20 @@ function displayPreferences() {
 		alignChildren = ["fill", "top"];
 		margins = kDialogSubPanelMargins;
 		
-		// Развнедрение внедрённых
-		var myProcessEmbedded = add("checkbox", undefined, localize(msgProcessEmbedded));
-		myProcessEmbedded.onClick = function() {
-			preferences[kPrefsProcessEmbedded] = myProcessEmbedded.value;
+		// Выбор процесса
+		var myWorkflowDropdown = add("dropdownlist");
+		for (var itm = 0; itm < kWorkflowOptions.length; itm++) {
+			var newListItem = myWorkflowDropdown.add("item", localize(kWorkflowOptions[itm][1]));
+			newListItem[kListItemObject] = kWorkflowOptions[itm][0];
+			if (newListItem[kListItemObject] == preferences[kPrefsWorkflow]) {
+				myWorkflowDropdown.selection = newListItem;
+			}
+		}
+		myWorkflowDropdown.onChange = function () {
+			preferences[kPrefsWorkflow] = myWorkflowDropdown.selection[kListItemObject];
+			setFormatOfImagesGroup();
 			interfaceItemsChanged();
 		}
-		myProcessEmbedded.value = preferences[kPrefsProcessEmbedded];
 		
 		// Обработка битмапов
 		var myProcessBitmaps = add("checkbox", undefined, localize(msgProcessBitmaps));
@@ -1143,6 +1299,19 @@ function displayPreferences() {
 			interfaceItemsChanged();
 		}
 		myProcessBitmaps.value = preferences[kPrefsProcessBitmaps];
+		
+		// Сканировать фотошоповские EPSы
+		var myProcessPhotoshopEPS = add("checkbox", undefined, localize(msgProcessPhotoshopEPS));
+		myProcessPhotoshopEPS.onClick = function() {
+			preferences[kPrefsProcessPhotoshopEPS] = myProcessPhotoshopEPS.value;
+			if (!flagEPSScanned) {
+				graphicsList = new dictionary();
+				preferencesDialog.close(3);
+			} else {
+				interfaceItemsChanged();
+			}
+		}
+		myProcessPhotoshopEPS.value = preferences[kPrefsProcessPhotoshopEPS];
 		
 		// Оставлять картинки открытыми в Фотошопе
 		var myLeaveGraphicsOpen = add("checkbox", undefined, localize(msgLeaveImagesOpen));
@@ -1159,90 +1328,9 @@ function displayPreferences() {
 		minimumSize.width = kDialogPanelWidth;
 		alignChildren = ["fill", "top"];
 		margins = kDialogSubPanelMargins;
+		minimumSize.height = 225;
 		
-		var myChangeFormatOfGroup = add("group");
-		with (myChangeFormatOfGroup) {
-			orientation = "column";
-			alignChildren = ["left", "top"];
-			
-			var myChangeFormatOfNoneButton = add("radiobutton", undefined, localize(msgChangeFormatOfNone));
-			myChangeFormatOfNoneButton.onClick = function() {
-				preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfNone;
-				interfaceItemsChanged();
-			}
-			myChangeFormatOfNoneButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfNone);
-			
-			var myChangeFormatOfWrongButton = add("radiobutton", undefined, localize(msgChangeFormatOfWrong));
-			myChangeFormatOfWrongButton.onClick = function() {
-				preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfWrong;
-				interfaceItemsChanged();
-			}
-			myChangeFormatOfWrongButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfWrong);
-			
-			var myChangeFormatOfAllButton = add("radiobutton", undefined, localize(msgChangeFormatOfAll));
-			myChangeFormatOfAllButton.onClick = function() {
-				preferences[kPrefsChangeFormatOf] = kPrefsChangeFormatOfAll;
-				interfaceItemsChanged();
-			}
-			myChangeFormatOfAllButton.value = (preferences[kPrefsChangeFormatOf] == kPrefsChangeFormatOfAll);
-		}
-		
-		var myChangeFormatParametersGroup = myChangeFormatOfGroup.add("group");
-		with (myChangeFormatParametersGroup) {
-			orientation = "column";
-			alignChildren = ["fill", "top"];
-			margins = kDialogSubControlMargins;
-			
-			var myChangeFormatToDropdown = add("dropdownlist");
-			for (var itm = 0; itm < kChangeFormatToOptions.length; itm++) {
-				var newListItem = myChangeFormatToDropdown.add("item", localize(kChangeFormatToOptions[itm][1]));
-				newListItem[kListItemObject] = kChangeFormatToOptions[itm][0];
-				if (newListItem[kListItemObject] == preferences[kPrefsChangeFormatTo]) {
-					myChangeFormatToDropdown.selection = newListItem;
-				}
-			}
-			myChangeFormatToDropdown.onChange = function () {
-				preferences[kPrefsChangeFormatTo] = myChangeFormatToDropdown.selection[kListItemObject];
-				interfaceItemsChanged();
-			}
-			
-			var myPSDOptionsGroup = add("group");
-			with (myPSDOptionsGroup) {
-				orientation = "column";
-				alignChildren = ["left", "top"];
-				margins = kDialogSubControlMargins;
-				
-				var myMakeLayerFromBackground = add("checkbox", undefined, localize(msgBackgroundLayerToNormalLayer));
-				myMakeLayerFromBackground.onClick = function() {
-					preferences[kPrefsMakeLayerFromBackground] = myMakeLayerFromBackground.value;
-				}
-				myMakeLayerFromBackground.value = preferences[kPrefsMakeLayerFromBackground];
-		
-				var myRemoveClipping = add("checkbox", undefined, localize(msgRemoveClipping));
-				myRemoveClipping.onClick = function() {
-					preferences[kPrefsRemoveClipping] = myRemoveClipping.value;
-				}
-				myRemoveClipping.value = preferences[kPrefsRemoveClipping];
-			}
-
-			var myProcessPhotoshopEPS = add("checkbox", undefined, localize(msgProcessPhotoshopEPS));
-			myProcessPhotoshopEPS.onClick = function() {
-				preferences[kPrefsProcessPhotoshopEPS] = myProcessPhotoshopEPS.value;
-				if (!flagEPSScanned) {
-					graphics = new dictionary();
-					preferencesDialog.close(3);
-				} else {
-					interfaceItemsChanged();
-				}
-			}
-			myProcessPhotoshopEPS.value = preferences[kPrefsProcessPhotoshopEPS];
-			
-			var myDeleteOriginals = add("checkbox", undefined, localize(msgRemoveSourceImages));
-			myDeleteOriginals.onClick = function() {
-				preferences[kPrefsDeleteOriginals] = myDeleteOriginals.value;
-			}
-			myDeleteOriginals.value = preferences[kPrefsDeleteOriginals];
-		}
+		setFormatOfImagesGroup();
 	}
 	
 	// Группа изменения разрешения
@@ -1490,10 +1578,10 @@ function displayPreferences() {
 					case kScopeAllDocs:
 						// Все открытые документы
 						myScopeItemsGroup.enabled = true;
-						for (var doc in documents) {
-							var newListItem = myItemsList.add("item", documents[doc][kDocumentsName]);
+						for (var doc in documentsList) {
+							var newListItem = myItemsList.add("item", documentsList[doc][kDocumentsName]);
 							newListItem[kListItemObject] = doc;
-							if (documents[doc][kDocumentsProcessable]) {
+							if (documentsList[doc][kDocumentsProcessable]) {
 								newListItem.image = myCircleGreenImage;
 								myItemsList.selection = myItemsList.items.length - 1;
 							} else {
@@ -1504,8 +1592,8 @@ function displayPreferences() {
 					case kScopeActiveDoc:
 						// Активный документ
 						myScopeItemsGroup.enabled = false;
-						var newListItem = myItemsList.add("item", documents[activeDocument][kDocumentsName]);
-						if (documents[activeDocument][kDocumentsProcessable]) {
+						var newListItem = myItemsList.add("item", documentsList[activeDocument][kDocumentsName]);
+						if (documentsList[activeDocument][kDocumentsProcessable]) {
 							newListItem.image = myCircleGreenImage;
 						} else {
 							newListItem.image = myCircleRedImage;
@@ -1513,10 +1601,10 @@ function displayPreferences() {
 						break;
 					case kScopeSelectedPages:
 						// Выбранные страницы
-						myScopeItemsGroup.enabled = (documents[activeDocument][kDocumentsProcessable]);
-						for (var pge = 0; pge < documents[activeDocument][kDocumentsObject].pages.length; pge++) {
-							var newListItem = myItemsList.add("item", documents[activeDocument][kDocumentsObject].pages[pge].name, pge);
-							newListItem[kListItemObject] = documents[activeDocument][kDocumentsObject].pages[pge];
+						myScopeItemsGroup.enabled = (documentsList[activeDocument][kDocumentsProcessable]);
+						for (var pge = 0; pge < documentsList[activeDocument][kDocumentsObject].pages.length; pge++) {
+							var newListItem = myItemsList.add("item", documentsList[activeDocument][kDocumentsObject].pages[pge].name, pge);
+							newListItem[kListItemObject] = documentsList[activeDocument][kDocumentsObject].pages[pge];
 							myItemsList.selection = pge;
 						}
 						break;
@@ -1533,7 +1621,7 @@ function displayPreferences() {
 	// разрешить или запретить кнопки выбора области действия
 	for (var btn = 0; btn < kScopeOptions.length; btn++) {
 		var myButton = myScopeRadioGroup.add("radiobutton", undefined, localize(kScopeOptions[btn][1]));
-		if (documents[activeDocument][kDocumentsProcessable]) {
+		if (documentsList[activeDocument][kDocumentsProcessable]) {
 			if (dictionaryLength(documentSelection) > 0) {
 				// выбрать "выбранные"
 				myButton.value = (btn == kScopeSelectedImages);
@@ -1548,17 +1636,17 @@ function displayPreferences() {
 		
 		switch (btn) {
 			case kScopeAllDocs:
-				myButton.enabled = (dictionaryLength(documents) > 1);
+				myButton.enabled = (dictionaryLength(documentsList) > 1);
 				break;
 			case kScopeActiveDoc:
-				myButton.enabled = documents[activeDocument][kDocumentsProcessable];
+				myButton.enabled = documentsList[activeDocument][kDocumentsProcessable];
 				break;
 			case kScopeSelectedPages:
-				myButton.enabled = documents[activeDocument][kDocumentsProcessable];
+				myButton.enabled = documentsList[activeDocument][kDocumentsProcessable];
 				break;
 			case kScopeSelectedImages:
 				myButton.enabled = (
-					(documents[activeDocument][kDocumentsProcessable]) &&
+					(documentsList[activeDocument][kDocumentsProcessable]) &&
 					(dictionaryLength(documentSelection) > 0));
 				break;
 		}
@@ -1594,7 +1682,7 @@ function displayPreferences() {
 					var mySelectedCount = 0;
 					for (var itm = 0; itm < myItemsList.items.length; itm++) {
 						if (myItemsList.items[itm].selected) {
-							if (!documents[myItemsList.items[itm][kListItemObject]][kDocumentsProcessable]) {
+							if (!documentsList[myItemsList.items[itm][kListItemObject]][kDocumentsProcessable]) {
 								myItemsList.items[itm].selected = false;
 							} else {
 								mySelectedCount++;
@@ -1697,7 +1785,7 @@ function displayPreferences() {
 				// выделена одна картинка, заполним список вхождений
 				var myEntriesList = selectedGraphics[myImagesList.selection[0][kListItemObject]][kGraphicsObjectList];
 				for (var itm in myEntriesList) {
-					var newListItem = myImagePositionsList.add("item", documents[myEntriesList[itm][kGraphicsParentDocument]][kDocumentsName]);
+					var newListItem = myImagePositionsList.add("item", documentsList[myEntriesList[itm][kGraphicsParentDocument]][kDocumentsName]);
 					newListItem[kListItemObject] = myEntriesList[itm][kGraphicsObject];
 					// CS3 не умеет делать многоколоночный список
 					if (appVersion > 5) {
@@ -1836,11 +1924,19 @@ function displayPreferences() {
 				if (((preferences[kPrefsIncludePasteboard]) || (selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsWithinBleeds])) ||
 					(preferences[kPrefsScope] == kScopeSelectedImages)) {
 					// картинка внутри вылетов, вне вылетов с опцией "обрабатывать на полях" или scope установлен в "выбранные картинки"
-					if (preferences[kPrefsProcessEmbedded]) {
+					if (preferences[kPrefsWorkflow] == kWorkflowUnembed) {
 						// обрабатываем внедрённые картинки
 						if (selectedGraphics[grc][kGraphicsPasted] || selectedGraphics[grc][kGraphicsEmbedded]) { return true; }
-					} else {
-						// обрабатываем обычные картинки
+					} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+						// цифровой процесс
+						if (selectedGraphics[grc][kGraphicsPasted] || selectedGraphics[grc][kGraphicsEmbedded]) { return false; }
+						if (isGraphicPNG(selectedGraphics[grc])) {
+							return (preferences[kPrefsExportToPNG] == kPrefsExportToPNGAll);
+						} else {
+							return true;
+						}
+					} else if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+						// допечатный процесс
 						if (selectedGraphics[grc][kGraphicsPasted] || selectedGraphics[grc][kGraphicsEmbedded]) { return false; }
 						if (isGraphicChangeFormat(selectedGraphics[grc])) { return true; }
 						if (selectedGraphics[grc][kGraphicsPhotoshopEPS]) {
@@ -1882,7 +1978,7 @@ function displayPreferences() {
 		myOKButton.enabled = false;
 		myImagesList.selection = null;
 		myImagesList.removeAll();
-		selectedGraphics = cloneDictionary(graphics);
+		selectedGraphics = cloneDictionary(graphicsList);
 		
 		// пройдёмся по всем вхождениям
 		for (var grc in selectedGraphics) {
@@ -1972,20 +2068,27 @@ function displayPreferences() {
 	
 	// Включение/выключение элементов интерфейса
 	function interfaceItemsChanged() {
-		myFlagChangeFormat = (preferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone);
-		myFlagResample = (myColorUpsample.value || myColorDownsample.value || (myProcessBitmaps.value && (myBitmapUpsample.value || myBitmapDownsample.value)));
 		
-		myChangeFormatParametersGroup.enabled = myFlagChangeFormat;
-		myPSDOptionsGroup.enabled = (preferences[kPrefsChangeFormatTo] > 0);
+		if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+			myChangeFormatParametersGroup.enabled = (preferences[kPrefsChangeFormatOf] != kPrefsChangeFormatOfNone);
+			myPSDOptionsGroup.enabled = (preferences[kPrefsChangeFormatTo] > 0);
+		} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+			
+		} else if (preferences[kPrefsWorkflow] == kWorkflowUnembed) {
+			
+		}
+		
 		myBitmapGraphicsGroup.enabled = myProcessBitmaps.value;
-		myResampleMethodGroup.enabled = myFlagResample;
+		myResampleMethodGroup.enabled = (myColorUpsample.value || myColorDownsample.value || (myProcessBitmaps.value && (myBitmapUpsample.value || myBitmapDownsample.value)));
 		myIncludePasteboard.enabled = ((preferences[kPrefsScope] == kScopeAllDocs) || (preferences[kPrefsScope] == kScopeActiveDoc));
 		myBackupGroup.enabled = preferences[kPrefsBackup];
 		
-		myProcessBitmaps.enabled = !myProcessEmbedded.value;
-		myLeaveGraphicsOpen.enabled = !myProcessEmbedded.value;
-		myFormatOfImagesGroup.enabled = !myProcessEmbedded.value;
-		myChangeResolutionGroup.enabled = !myProcessEmbedded.value;
+		var isNotUnembedding = (preferences[kPrefsWorkflow] != kWorkflowUnembed);
+		myProcessBitmaps.enabled = isNotUnembedding;
+		myProcessPhotoshopEPS.enabled = isNotUnembedding;
+		myLeaveGraphicsOpen.enabled = isNotUnembedding;
+		myFormatOfImagesGroup.enabled = isNotUnembedding;
+		myChangeResolutionGroup.enabled = isNotUnembedding;
 		
 		savePreferences();
 		filterGraphics();
@@ -2037,7 +2140,7 @@ function displayPreferences() {
 		// пройдёмся по всем выбранным в списке
 		var flagMultipleEntries = false;
 		for (var grc in selectedGraphics) {
-			if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphics[grc][kGraphicsObjectList])) {
+			if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphicsList[grc][kGraphicsObjectList])) {
 				flagMultipleEntries = true;
 				break;
 			}
@@ -2056,12 +2159,12 @@ function displayPreferences() {
 			if (decisionResult == kMultipleEntriesMultiple) {
 				// заменим все неполные вхождения на полные
 				for (var grc in selectedGraphics) {
-					if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphics[grc][kGraphicsObjectList])) {
+					if (dictionaryLength(selectedGraphics[grc][kGraphicsObjectList]) != dictionaryLength(graphicsList[grc][kGraphicsObjectList])) {
 						for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
 							delete selectedGraphics[grc][kGraphicsObjectList][itm];
 						}
 						delete selectedGraphics[grc];
-						selectedGraphics[grc] = cloneDictionary(graphics[grc]);
+						selectedGraphics[grc] = cloneDictionary(graphicsList[grc]);
 					}
 				}
 				summarizeImagesData();
@@ -2072,7 +2175,7 @@ function displayPreferences() {
 	// Убрать из списка не пошедшие в обработку документы
 	switch (preferences[kPrefsScope]) {
 		case kScopeAllDocs:
-			for (var doc in documents) {
+			for (var doc in documentsList) {
 				var isSelected = false;
 				for (var grc in selectedGraphics) {
 					for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
@@ -2083,14 +2186,14 @@ function displayPreferences() {
 					}
 					if (isSelected) break;
 				}
-				if (!isSelected) delete documents[doc];
+				if (!isSelected) delete documentsList[doc];
 			}
 			break;
 		case kScopeActiveDoc:
 		case kScopeSelectedPages:
 		case kScopeSelectedImages:
-			for (var doc in documents) {
-				if (doc != activeDocument) delete documents[doc];
+			for (var doc in documentsList) {
+				if (doc != activeDocument) delete documentsList[doc];
 			}
 			break;
 		default:
@@ -2249,7 +2352,7 @@ function backupImages() {
 	
 	// Пройдёмся по всем картинкам
 	var backupFilesCount = 0;
-	if (!preferences[kPrefsProcessEmbedded]) {
+	if (preferences[kPrefsWorkflow] != kWorkflowUnembed) {
 		for (var grc in selectedGraphics) {
 			// добавим все вхождения картинки в подокументный список для бэкапа
 			for (var itm in selectedGraphics[grc][kGraphicsObjectList]) {
@@ -2258,7 +2361,7 @@ function backupImages() {
 				
 				// картинки ещё нет в списке бэкапа?
 				var myItemLink = selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsObject].itemLink;
-				var myBackupList = documents[doc][kDocumentsBackupList];
+				var myBackupList = documentsList[doc][kDocumentsBackupList];
 				if (!(myItemLink.filePath in myBackupList)) {
 					// добавим
 					myBackupList[myItemLink.filePath] = myItemLink;
@@ -2267,13 +2370,13 @@ function backupImages() {
 			}
 		}
 	}
-	backupFilesCount += dictionaryLength(documents);
+	backupFilesCount += dictionaryLength(documentsList);
 	
 	showStatus(localize(msgBackupStatus), "", 0, backupFilesCount);
 	
 	// Пройдёмся по всем выбранным документам
-	for (var doc in documents) {
-		backupDocument(documents[doc]);
+	for (var doc in documentsList) {
+		backupDocument(documentsList[doc]);
 		if (flagStopExecution) { break }
 	}
 	
@@ -2287,7 +2390,7 @@ function backupImages() {
 // ------------------------------------------------------
 function unembedImages() {
 	// Обрабатываем или развнедряем?
-	if (!preferences[kPrefsProcessEmbedded]) { return true }
+	if (preferences[kPrefsWorkflow] != kWorkflowUnembed) { return true }
 	
 	// Спросим, куда класть
 	var decisionResult = (askForDecision(msgUnembeddingOptions, msgUnembeddingOptionsDescription, kUnembedOptions, kUnembedIntoDifferentFolders));
@@ -2305,13 +2408,13 @@ function unembedImages() {
 	showStatus(localize(msgUnembeddingImagesStatus), "", 0, dictionaryLength(selectedGraphics));
 	
 	// Пройдёмся по всем документам
-	for (var doc in documents) {
+	for (var doc in documentsList) {
 		
 		// Сохраним reference pointы во всех окошках документа
 		var myReferencePoints = [];
-		for (var wnd = 0; wnd < documents[doc][kDocumentsObject].layoutWindows.length; wnd++) {
-			myReferencePoints[wnd] = documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint;
-			documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = AnchorPoint.CENTER_ANCHOR;
+		for (var wnd = 0; wnd < documentsList[doc][kDocumentsObject].layoutWindows.length; wnd++) {
+			myReferencePoints[wnd] = documentsList[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint;
+			documentsList[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = AnchorPoint.CENTER_ANCHOR;
 		}
 		
 		// Сохраним настройки экспорта для JPEG
@@ -2327,7 +2430,7 @@ function unembedImages() {
 		
 		// Сделаем, если нужно, папку для развнедряемых файлов
 		if (decisionResult == kUnembedIntoDifferentFolders) {
-			unembedFolder = new Folder(documents[doc][kDocumentsObject].filePath + "/" + documents[doc][kDocumentsName] + kUnembedFolderSuffix);
+			unembedFolder = new Folder(documentsList[doc][kDocumentsObject].filePath + "/" + documentsList[doc][kDocumentsName] + kUnembedFolderSuffix);
 			if (!unembedFolder.create()) {
 				alert(localize(msgErrorCreatingUnembeddedFolder, Folder.decode(unembedFolder)));
 				flagStopExecution = true;
@@ -2411,8 +2514,8 @@ function unembedImages() {
 		var savedJPEGExportPreferences = app.jpegExportPreferences;
 		
 		// Восстановим reference pointы
-		for (var wnd = 0; wnd < documents[doc][kDocumentsObject].layoutWindows.length; wnd++) {
-			documents[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = myReferencePoints[wnd];
+		for (var wnd = 0; wnd < documentsList[doc][kDocumentsObject].layoutWindows.length; wnd++) {
+			documentsList[doc][kDocumentsObject].layoutWindows[wnd].transformReferencePoint = myReferencePoints[wnd];
 		}
 		
 		if (flagStopExecution) { break }
@@ -2478,6 +2581,7 @@ function processImages() {
 					}
 					break;
 				case 1:
+					// сохраняем в TIFF
 					var myTIFFSaveOptions = new TiffSaveOptions();
 					with (myTIFFSaveOptions) {
 						byteOrder = ByteOrder.MACOS;
@@ -2490,6 +2594,7 @@ function processImages() {
 					if (myLeaveGraphicsOpen) { app.open(myNewFile) }
 					break;
 				case 2:
+					// сохраняем в PSD
 					if ((myMakeLayerFromBackground) && (myDocument.layers.length == 1) && (myDocument.hasOwnProperty("backgroundLayer"))) {
 						try {
 							myDocument.backgroundLayer.isBackgroundLayer = false;
@@ -2504,6 +2609,43 @@ function processImages() {
 					myDocument.close(SaveOptions.DONOTSAVECHANGES);
 					if (myLeaveGraphicsOpen) { app.open(myNewFile) }
 					break;
+				case 3:
+					// экспортируем в PNG
+					myDocument.convertProfile("sRGB IEC61966-2.1", Intent.RELATIVECOLORIMETRIC, true, true);
+					var myPNGExportOptions = new ExportOptionsSaveForWeb();
+					with (myPNGExportOptions) {
+						format = SaveDocumentType.PNG;
+						PNG8 = false;
+						quality = 100;
+						includeProfile = false;
+						interlaced = false;
+						transparency = true;
+					}
+					var myNewFile = new File(myNewFilePath);
+					var myTempFile = new File(myNewFile.parent + "/_temporary_export_file_");
+					myDocument.exportDocument(myTempFile, ExportType.SAVEFORWEB, myPNGExportOptions);
+					myDocument.close(SaveOptions.DONOTSAVECHANGES);
+					myTempFile.rename(myNewFile.name);
+					break;
+				case 4:
+					// экспортируем PNG в PNG
+					myDocument.convertProfile("sRGB IEC61966-2.1", Intent.RELATIVECOLORIMETRIC, true, true);
+					var myPNGExportOptions = new ExportOptionsSaveForWeb();
+					with (myPNGExportOptions) {
+						format = SaveDocumentType.PNG;
+						PNG8 = false;
+						quality = 100;
+						includeProfile = false;
+						interlaced = false;
+						transparency = true;
+					}
+					var myFileName = myFileRef.name;
+					var myTempFile = new File(myFileRef.parent + "/_temporary_export_file_");
+					myDocument.exportDocument(myTempFile, ExportType.SAVEFORWEB, myPNGExportOptions);
+					myDocument.close(SaveOptions.DONOTSAVECHANGES);
+					myFileRef.remove();
+					myTempFile.rename(myFileName);
+					break;
 			}
 		} catch (e) {
 			throw e;
@@ -2513,7 +2655,7 @@ function processImages() {
 	}
 	
 	// Обрабатываем или развнедряем?
-	if (preferences[kPrefsProcessEmbedded]) { return true }
+	if (preferences[kPrefsWorkflow] == kWorkflowUnembed) { return true }
 	
 	// Поехали
 	showStatus(localize(msgProcessingImagesStatus), "", 0, dictionaryLength(selectedGraphics));
@@ -2522,15 +2664,23 @@ function processImages() {
 		showStatus(undefined, selectedGraphics[grc][kGraphicsName], undefined, undefined);
 		
 		// Параметры скрипта для Фотошопа
-		var myDoChangeFormat = isGraphicChangeFormat(selectedGraphics[grc]);
+		var myDoChangeFormat = false;
+		var myChangeFormatCode = 0;
 		
-		var myChangeFormatCode;
-		if (myDoChangeFormat) {
-			if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToTIFF)) myChangeFormatCode = 1;
-			if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToTIFFAndPSD)) myChangeFormatCode = (selectedGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
-			if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) myChangeFormatCode = 2;
-		} else {
-			myChangeFormatCode = 0;
+		if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+			myDoChangeFormat = isGraphicChangeFormat(selectedGraphics[grc]);
+			if (myDoChangeFormat) {
+				if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToTIFF)) myChangeFormatCode = 1;
+				if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToTIFFAndPSD)) myChangeFormatCode = (selectedGraphics[grc][kGraphicsHasClippingPath] ? 2 : 1);
+				if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) myChangeFormatCode = 2;
+			}
+		} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+			myDoChangeFormat = !isGraphicPNG(selectedGraphics[grc]);
+			if (myDoChangeFormat) {
+				myChangeFormatCode = 3;
+			} else {
+				myChangeFormatCode = 4;
+			}
 		}
 		
 		var myTargetDPI = (selectedGraphics[grc][kGraphicsBitmap] ? preferences[kPrefsBitmapTargetDPI] : preferences[kPrefsColorTargetDPI]);
@@ -2539,7 +2689,21 @@ function processImages() {
 		if (myDoChangeFormat) {
 			var myFile = new File(grc);
 			var myPath = myFile.path;
-			myNewFilePath = uniqueFileName(myPath, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + (myChangeFormatCode == 1 ? "tif" : "psd")));
+			var myExtension;
+			switch (myChangeFormatCode) {
+				case 1:
+					myExtension = "tif";
+					break;
+				case 2:
+					myExtension = "psd";
+					break;
+				case 3:
+					myExtension = "png";
+					break;
+				default:
+					break;
+			}
+			myNewFilePath = uniqueFileName(myPath, cleanupPath(myFile.name.replace(/(.+\.).*$/, "$1") + myExtension));
 			selectedGraphics[grc][kGraphicsNewFilePath] = myNewFilePath;
 			selectedGraphics[grc][kGraphicsDoRelink] = true;
 		} else {
@@ -2688,7 +2852,7 @@ function processImages() {
 // ------------------------------------------------------
 function relinkImages() {
 	// Перелинковываем или было развнедрение?
-	if (preferences[kPrefsProcessEmbedded]) { return true }
+	if (preferences[kPrefsWorkflow] == kWorkflowUnembed) { return true }
 	
 	// Посчитать линки
 	var myTotalLinks = 0;
@@ -2706,8 +2870,8 @@ function relinkImages() {
 		for (var itm in graphicsList) {
 			showStatus(undefined, selectedGraphics[grc][kGraphicsName], undefined, undefined);
 			
-			//var myDocument = documents[graphicsList[itm][kGraphicsParentDocument]][kDocumentsObject];
-			var myDocument = documents[graphicsList[itm][kGraphicsParentDocument]][kDocumentsObject];
+			//var myDocument = documentsList[graphicsList[itm][kGraphicsParentDocument]][kDocumentsObject];
+			var myDocument = documentsList[graphicsList[itm][kGraphicsParentDocument]][kDocumentsObject];
 			
 			// Сохраним reference pointы во всех окошках документа
 			var myReferencePoints = [];
@@ -2743,24 +2907,33 @@ function relinkImages() {
 			
 			// Скорректируем размер
 			if (selectedGraphics[grc][kGraphicsResample]) {
-				if (graphicFormat(graphicsList[itm][kGraphicsObject]) == "CompuServe GIF") {
-					// это gif, в нём разрешение всегда 72 dpi
-					graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] * (selectedGraphics[grc][kGraphicsLowestDPI] / preferences[kPrefsColorTargetDPI])) * 100;
-					graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] * (selectedGraphics[grc][kGraphicsLowestDPI] / preferences[kPrefsColorTargetDPI])) * 100;
-				} else {
-					// всё нормально, это не gif
-					try {
-						graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
-						graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
-					} catch (e) {
-						$.writeln(e);
-						// redefineScaling
-						$.writeln("percent - " + ((graphicsList[itm][kGraphicsObjectHScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100));
-						debugPrintObject(graphicsList[itm][kGraphicsObject]);
-						app.select(graphicsList[itm][kGraphicsObject]);
-						app.activeWindow.zoom(ZoomOptions.FIT_PAGE);
-						app.activeWindow.zoomPercentage = 400;
+				if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+					
+					// допечатный процесс
+					if (graphicFormat(graphicsList[itm][kGraphicsObject]) == "CompuServe GIF") {
+						// это gif, в нём разрешение всегда 72 dpi
+						graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] * (selectedGraphics[grc][kGraphicsLowestDPI] / preferences[kPrefsColorTargetDPI])) * 100;
+						graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] * (selectedGraphics[grc][kGraphicsLowestDPI] / preferences[kPrefsColorTargetDPI])) * 100;
+					} else {
+						// всё нормально, это не gif
+						try {
+							graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+							graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+						} catch (e) {
+							$.writeln(e);
+							// redefineScaling
+							$.writeln("percent - " + ((graphicsList[itm][kGraphicsObjectHScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100));
+							debugPrintObject(graphicsList[itm][kGraphicsObject]);
+							app.select(graphicsList[itm][kGraphicsObject]);
+							app.activeWindow.zoom(ZoomOptions.FIT_PAGE);
+							app.activeWindow.zoomPercentage = 400;
+						}
 					}
+				} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+					
+					// цифровой процесс
+					graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+					graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
 				}
 			}
 			
@@ -2775,7 +2948,7 @@ function relinkImages() {
 		}
 		
 		// Удалить исходник?
-		if ((preferences[kPrefsDeleteOriginals]) && (selectedGraphics[grc][kGraphicsDoRelink])) {
+		if (isGraphicDeleteOriginal(selectedGraphics[grc])) {
 			var myOriginalFile = new File(grc);
 			myOriginalFile.remove();
 		}
@@ -2790,12 +2963,12 @@ function relinkImages() {
 // Сохранить документы
 // ------------------------------------------------------
 function saveDocuments() {
-	showStatus(localize(msgSavingDocumentsStatus), "", 0, dictionaryLength(documents));
+	showStatus(localize(msgSavingDocumentsStatus), "", 0, dictionaryLength(documentsList));
 	
-	for (var doc in documents) {
-		showStatus(undefined, documents[doc][kDocumentsObject].name, undefined, undefined);
+	for (var doc in documentsList) {
+		showStatus(undefined, documentsList[doc][kDocumentsObject].name, undefined, undefined);
 		
-		documents[doc][kDocumentsObject].save();
+		documentsList[doc][kDocumentsObject].save();
 		
 		showStatus(undefined, undefined, statusWindowGauge.value + 1, undefined);
 	}
@@ -3113,6 +3286,27 @@ function isGraphicChangeFormat(myGraphic) {
 	} else {
 		return false;
 	}
+}
+
+// Удалять ли исходник
+// ------------------------------------------------------
+function isGraphicDeleteOriginal(myGraphic) {
+	
+	if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
+		return (preferences[kPrefsDeleteOriginals] && myGraphic[kGraphicsDoRelink]);
+	} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
+		return (preferences[kPrefsDeletePNGOriginals] && myGraphic[kGraphicsDoRelink]);
+	} else {
+		return false;
+	}
+}
+
+
+// Проверка картинки на PNGшность
+// ------------------------------------------------------
+function isGraphicPNG(myGraphic) {
+	
+	return (myGraphic[kGraphicsFormat] in {"PNG":0, "Portable Network Graphics (PNG)":0});
 }
 
 // Проверка цветной или серой картинки на низкое dpi
