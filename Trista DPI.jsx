@@ -1933,7 +1933,23 @@ function displayPreferences() {
 						if (isGraphicPNG(selectedGraphics[grc])) {
 							return (preferences[kPrefsExportToPNG] == kPrefsExportToPNGAll);
 						} else {
-							return true;
+							if (selectedGraphics[grc][kGraphicsBitmap]) {
+								// ч/б картинка
+								if (!preferences[kPrefsProcessBitmaps]) { return false; }
+								if ((preferences[kPrefsBitmapUpsample]) && (isGraphicBitmapDPILow(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+									// низкое dpi ч/б
+									selectedGraphics[grc][kGraphicsResample] = true;
+									return true;
+								}
+								if ((preferences[kPrefsBitmapDownsample]) && (isGraphicBitmapDPIHigh(selectedGraphics[grc][kGraphicsObjectList][itm][kGraphicsLowestDPI]))) {
+									// высокое dpi ч/б
+									selectedGraphics[grc][kGraphicsResample] = true;
+									return true;
+								}
+							} else {
+								// цветная картинка
+								return true;
+							}
 						}
 					} else if (preferences[kPrefsWorkflow] == kWorkflowPrepress) {
 						// допечатный процесс
@@ -2675,11 +2691,13 @@ function processImages() {
 				if ((preferences[kPrefsChangeFormatTo] == kChangeFormatToPSD)) myChangeFormatCode = 2;
 			}
 		} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
-			myDoChangeFormat = !isGraphicPNG(selectedGraphics[grc]);
-			if (myDoChangeFormat) {
-				myChangeFormatCode = 3;
-			} else {
-				myChangeFormatCode = 4;
+			if (!selectedGraphics[grc][kGraphicsBitmap]) {
+				myDoChangeFormat = !isGraphicPNG(selectedGraphics[grc]);
+				if (myDoChangeFormat) {
+					myChangeFormatCode = 3;
+				} else {
+					myChangeFormatCode = 4;
+				}
 			}
 		}
 		
@@ -2932,8 +2950,15 @@ function relinkImages() {
 				} else if (preferences[kPrefsWorkflow] == kWorkflowDigital) {
 					
 					// цифровой процесс
-					graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
-					graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+					if (selectedGraphics[grc][kGraphicsBitmap]) {
+						// это битмап
+						graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+						graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+					} else {
+						// это не битмап
+						graphicsList[itm][kGraphicsObject].absoluteHorizontalScale = (graphicsList[itm][kGraphicsObjectHScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+						graphicsList[itm][kGraphicsObject].absoluteVerticalScale = (graphicsList[itm][kGraphicsObjectVScale] * (72 / preferences[kPrefsColorTargetDPI]) / selectedGraphics[grc][kGraphicsMaxPercentage]) * 100;
+					}
 				}
 			}
 			
