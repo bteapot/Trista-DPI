@@ -90,7 +90,7 @@ Bitmap-изображения не экспортируются в PNG.
 
 ### Развнедрение
 
-Картинки, штатно внедрённые в документ и картинки, вставленные командами Копировать/Вставить, могут быть автоматически извлечены.
+Картинки, штатно внедрённые в документ, и картинки, вставленные командами Копировать/Вставить, могут быть автоматически извлечены.
 
 Установка
 ---------
@@ -102,7 +102,7 @@ Bitmap-изображения не экспортируются в PNG.
 
 **Анастасия Морозова** - начальная идея, постановка задач и тестирование по допечатному процессу.
 
-**Крэйг МакКаббин** - идея цифрового процесса.
+**Крэйг МакКаббин** - идея и тестирование цифрового процесса.
 
 <a name="lang_eng"><a>Trista DPI
 ====================
@@ -193,7 +193,7 @@ Previously created backups can be automatically restored by running script with 
 
 ### Unembedding
 
-Embedded images and images, pasted into document by Copy/Paste commands can be automatically unembedded.
+Embedded images and images pasted into document by Copy/Paste commands can be automatically unembedded.
 
 Installation
 ------------
@@ -205,4 +205,4 @@ Acknowledgements
 
 **Anastasia Morozova** - initial idea, prepress problem definition and testing.
 
-**Craig McCubbin** - idea of digital process.
+**Craig McCubbin** - idea and testing of digital process.
