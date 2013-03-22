@@ -203,6 +203,6 @@ Script file (`Trista DPI.jsx`) should be placed in folder `Scripts Panel`. It ca
 Acknowledgements
 ----------------
 
-**Anastasia Morozova** - initial idea, prepress problem definition and testing.
+**Anastasia Morozova** - initial idea, prepress task definition and testing.
 
 **Craig McCubbin** - idea and testing of digital process.
