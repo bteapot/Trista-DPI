@@ -28,9 +28,9 @@
 По желанию JPEG, PNG, GIF и BMP можно пересохранять в TIFF или PSD.
 Новые файлы создаются в той-же папке, что и исходные.
 
-* **Сохранять как TIFF** - все неполиграфические форматы (JPEG, PNG и т.п.) будут пересохранены в TIFF.
-* **Сохранять как TIFF, с обтравкой в PSD** - вся неполиграфия в TIFF, а при обнаружении обтравки на картинке в InDesign - в PSD.
-* **Сохранять как PSD** - вся неполиграфия в PSD.
+* **Сохранять как TIFF** – все неполиграфические форматы (JPEG, PNG и т.п.) будут пересохранены в TIFF.
+* **Сохранять как TIFF, с обтравкой в PSD** – вся неполиграфия в TIFF, а при обнаружении обтравки на картинке в InDesign – в PSD.
+* **Сохранять как PSD** – вся неполиграфия в PSD.
 
 При сохранении в PSD можно отрывать лэер от фона и убирать обтравку в InDesign.
 
@@ -42,8 +42,8 @@
 
 Изображения всех поддерживаемых InDesign форматов экспортируются в PNG.
 
-* **Только не-PNG файлы** - в обработку берутся все форматы, кроме PNG.
-* **Все файлы, включая PNG** - включая PNG.
+* **Только не-PNG файлы** – в обработку берутся все форматы, кроме PNG.
+* **Все файлы, включая PNG** – включая PNG.
 
 Bitmap-изображения не экспортируются в PNG.
 
@@ -58,15 +58,15 @@ Bitmap-изображения не экспортируются в PNG.
 
 Можно выбрать метод изменения размера изображений:
 
-* **Bicubic** - по-умолчанию, и для уменьшения, и для увеличения.
-* **Bicubic sharper/smoother** - для увеличения резкости при уменьшении, и для сглаживания при увеличении.  
+* **Bicubic** – по-умолчанию, и для уменьшения, и для увеличения.
+* **Bicubic sharper/smoother** – для увеличения резкости при уменьшении, и для сглаживания при увеличении.  
 
 ### Области действия
 
-* **Все открытые документы** - в обработку идут все документы, открытые в InDesign.
-* **Активный документ** - в обработку идёт только активный документ.
-* **Выбранные страницы** - в обработку идут только выбранные страницы активного документа.
-* **Выбранные изображения** - в обработку идут только выбранные в InDesign изображения активного документа.
+* **Все открытые документы** – в обработку идут все документы, открытые в InDesign.
+* **Активный документ** – в обработку идёт только активный документ.
+* **Выбранные страницы** – в обработку идут только выбранные страницы активного документа.
+* **Выбранные изображения** – в обработку идут только выбранные в InDesign изображения активного документа.
 
 Изображения за пределами вылетов можно обрабатывать или игнорировать.
 
@@ -100,9 +100,9 @@ Bitmap-изображения не экспортируются в PNG.
 Благодарности
 -------------
 
-**Анастасия Морозова** - начальная идея, постановка задач и тестирование по допечатному процессу.
+**Анастасия Морозова** – начальная идея, постановка задач и тестирование по допечатному процессу.
 
-**Крэйг МакКаббин** - идея и тестирование цифрового процесса.
+**Крэйг МакКаббин** – идея и тестирование цифрового процесса.
 
 <a name="lang_eng"><a>Trista DPI
 ====================
@@ -131,9 +131,9 @@ All InDesign raster graphic formats are supported.
 Optionally JPEG, PNG, GIF and BMP can be resaved as TIFF or PSD.
 New files are created in the same folder as originals.
 
-* **Save as TIFF** - all non-prepress formats (JPEG, PNG etc.) are resaved to TIFF.
-* **Save as TIFF, PSD when clipping detected** - all non-prepress to TIFF, and to PSD when detecting a clipping path in InDesign.
-* **Save as PSD** - all non-prepress to PSD.
+* **Save as TIFF** – all non-prepress formats (JPEG, PNG etc.) are resaved to TIFF.
+* **Save as TIFF, PSD when clipping detected** – all non-prepress to TIFF, and to PSD when detecting a clipping path in InDesign.
+* **Save as PSD** – all non-prepress to PSD.
 
 Background layer can be transformed to normal layer, and clipping path in InDesign can be removed when resaving to PSD.
 
@@ -145,8 +145,8 @@ Original images can be removed.
 
 Images of all InDesign-supported formats are exported to PNG.
 
-* **Non-PNG files only** - all images excluding PNG are exported to PNG.
-* **All files including PNG** - including PNG.
+* **Non-PNG files only** – all images excluding PNG are exported to PNG.
+* **All files including PNG** – including PNG.
 
 Bitmap images are not exported to PNG.
 
@@ -161,15 +161,15 @@ Transformation parameters of every image's occurrence are considered when calcul
 
 Image resampling method can be choosen from:
 
-* **Bicubic** - default, for downsampling and upsampling.
-* **Bicubic sharper/smoother** - sharper for downsampling and smoother for upsampling.  
+* **Bicubic** – default, for downsampling and upsampling.
+* **Bicubic sharper/smoother** – sharper for downsampling and smoother for upsampling.  
 
 ### Scopes
 
-* **All opened documents** - all documents, opened in InDesign will be processed.
-* **Active document** - only active document will be processed.
-* **Selected pages** - only selected pages of active document will be processed.
-* **Selected images** - only selected in InDesign images will be processed.
+* **All opened documents** – all documents, opened in InDesign will be processed.
+* **Active document** – only active document will be processed.
+* **Selected pages** – only selected pages of active document will be processed.
+* **Selected images** – only selected in InDesign images will be processed.
 
 Images that are off-bleeds can be processed or ignored.
 
@@ -203,6 +203,6 @@ Script file (`Trista DPI.jsx`) should be placed in folder `Scripts Panel`. It ca
 Acknowledgements
 ----------------
 
-**Anastasia Morozova** - initial idea, prepress task definition and testing.
+**Anastasia Morozova** – initial idea, prepress task definition and testing.
 
-**Craig McCubbin** - idea and testing of digital process.
+**Craig McCubbin** – idea and testing of digital process.
