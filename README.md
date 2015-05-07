@@ -1,3 +1,9 @@
+Этот репозиторий устарел. Более современная версия тут: https://github.com/flekst/Trista-DPI
+
+This repository is outdated. Look for updated version here: https://github.com/flekst/Trista-DPI
+
+----------
+
 * [Русский](#lang_rus)
 * [English](#lang_eng)
 
